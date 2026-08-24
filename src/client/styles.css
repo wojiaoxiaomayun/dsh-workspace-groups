@@ -6,6 +6,9 @@
   flex-direction: column;
   min-height: 0;
   flex: 1;
+  box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
 }
 
 .wgSectionHeader {
@@ -370,8 +373,29 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
-  padding: 8px 0;
+  gap: 12px;
+  padding: 8px 0 0;
+  overflow: hidden;
+}
+
+.wgRail .wgSectionHeader {
+  flex-direction: column;
+  width: 36px;
+  height: auto;
+  gap: 12px;
+  align-items: center;
+  align-self: center;
+  padding: 0;
+}
+
+.wgRail .wgIconButton {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+}
+
+.wgRail .wgTreeBody {
+  display: none;
 }
 
 .wgAddError {

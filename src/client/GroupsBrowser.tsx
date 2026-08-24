@@ -866,7 +866,7 @@ export function GroupsBrowser({
           />
         ) : (
           <div className="wgList" role="tree" aria-label={t('section.workspaces')}>
-            {groups.length === 0 && (
+            {groups.length === 0 && topLevel.length === 0 && !topLevelDropActive && (
               <div className="wgEmpty">{workspacePhase === 'ready' ? t('empty.noWorkspaces') : t('empty.none')}</div>
             )}
             {groups.map((category) => (
