@@ -2,7 +2,7 @@
   <strong>English</strong> · <a href="./README_ZH.md">简体中文</a>
 </p>
 
-# dsh-workspace-groups
+# @dsh-xhl/workspace-groups
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![DSH](https://img.shields.io/badge/DSH-0.1.1--rc.2-purple.svg)
@@ -19,7 +19,7 @@
 
 ## Screenshot
 
-<img src="screenshot.png" alt="dsh-workspace-groups workspace grouping manager" width="280" />
+<img src="screenshot.png" alt="@dsh-xhl/workspace-groups workspace grouping manager" width="280" />
 
 ## Features
 
@@ -97,20 +97,20 @@
   → **top level** (ungrouped projects render as top-level rows). The YAML is never
   rewritten.
 
-## Install (GitHub distribution)
+## Install (npm)
 
 > Prerequisite: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > installed (`dsh` available) with a target profile initialized (e.g. the built-in `web`).
 
 ```sh
-dsh plugin --profile web add github:z-col/dsh-workspace-groups
+dsh plugin --profile web add @dsh-xhl/workspace-groups
 ```
 
 This automatically:
 
-1. Adds `"dsh-workspace-groups": "github:z-col/dsh-workspace-groups"` (pinned to
-   version/commit) to `dependencies` in `~/.dsh/profiles/web/package.json`
-2. Appends `"dsh-workspace-groups"` to `dsh.profile.bundles`
+1. Adds `"@dsh-xhl/workspace-groups": "^0.1.0"` to `dependencies` in
+   `~/.dsh/profiles/web/package.json`
+2. Appends `"@dsh-xhl/workspace-groups"` to `dsh.profile.bundles`
 3. Runs pnpm install and validates the bundle layer
 
 **Restart the web profile after installing** (both the bundle and the host half only load
@@ -125,23 +125,34 @@ Verify the install:
 
 ```sh
 dsh --profile web --dump-config | grep -A3 workspace-groups
-# expect: - id: workspace-groups / name: dsh-workspace-groups / config: {}
+# expect: - id: workspace-groups / name: @dsh-xhl/workspace-groups / config: {}
 curl http://127.0.0.1:3080/workspace-groups/config
 # expect: the sidecar YAML parsed as JSON
 ```
 
+### Alternative: install from GitHub
+
+```sh
+dsh plugin --profile web add github:z-col/dsh-workspace-groups
+```
+
+This adds `"dsh-workspace-groups": "github:z-col/dsh-workspace-groups"` (pinned to
+version/commit) to `dependencies` instead. The GitHub distribution works from the
+committed `lib/` artifacts and requires no publish step.
+
 ## Uninstall
 
 ```sh
-dsh plugin --profile web remove dsh-workspace-groups
+dsh plugin --profile web remove @dsh-xhl/workspace-groups
 ```
 
 This removes the dependency from `dependencies` and the matching line from
 `dsh.profile.bundles`. A **web profile restart** is required for it to take effect.
 
 > Manual equivalent (pick one, don't repeat): edit `~/.dsh/profiles/web/package.json`,
-> remove the `dsh-workspace-groups` line from `dependencies` and `"dsh-workspace-groups"`
-> from `dsh.profile.bundles`, then run `pnpm install` in that directory.
+> remove the `@dsh-xhl/workspace-groups` line from `dependencies` and
+> `"@dsh-xhl/workspace-groups"` from `dsh.profile.bundles`, then run `pnpm install` in
+> that directory.
 
 ## Classification config (sidecar)
 

@@ -1,5 +1,5 @@
 /**
- * dsh-workspace-groups client half: registers the three-level grouped
+ * @dsh-xhl/workspace-groups client half: registers the three-level grouped
  * workspace browser into the `sidebar.workspaces` slot, shadowing the
  * official ui-workspace browser.
  *

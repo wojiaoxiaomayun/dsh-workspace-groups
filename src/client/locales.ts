@@ -68,6 +68,17 @@ export type WorkspaceGroupsKey =
   | 'collapse'
   | 'expandMore'
   | 'newSession'
+  | 'quick.title'
+  | 'quick.tab.workspaces'
+  | 'quick.tab.running'
+  | 'quick.search.placeholder'
+  | 'quick.empty.workspaces'
+  | 'quick.action.newSession'
+  | 'quick.action.running'
+  | 'quick.action.noneRunning'
+  | 'quick.empty.running'
+  | 'quick.select.hint'
+  | 'quick.hint'
 
 export type WorkspaceGroupsDict = LocaleDictOf<'workspaceGroups'>
 
@@ -135,6 +146,17 @@ export const zh: WorkspaceGroupsDict = {
   collapse: '折叠',
   expandMore: '展开全部',
   newSession: '新建会话',
+  'quick.title': '快速切换',
+  'quick.tab.workspaces': '工作区',
+  'quick.tab.running': '运行中',
+  'quick.search.placeholder': '搜索工作区…',
+  'quick.empty.workspaces': '没有匹配的工作区',
+  'quick.action.newSession': '新建会话',
+  'quick.action.running': '切到运行中的会话',
+  'quick.action.noneRunning': '没有正在运行的会话',
+  'quick.empty.running': '当前没有正在运行的会话',
+  'quick.select.hint': '在上方选择一个工作区',
+  'quick.hint': 'Ctrl+R 开关 · Enter 新建会话 · Esc 关闭',
 }
 
 /** English dictionary. */
@@ -201,4 +223,15 @@ export const en: WorkspaceGroupsDict = {
   collapse: 'Collapse',
   expandMore: 'Show all',
   newSession: 'New Session',
+  'quick.title': 'Quick switch',
+  'quick.tab.workspaces': 'Workspaces',
+  'quick.tab.running': 'Running',
+  'quick.search.placeholder': 'Search workspaces…',
+  'quick.empty.workspaces': 'No matching workspaces',
+  'quick.action.newSession': 'New Session',
+  'quick.action.running': 'Switch to running session',
+  'quick.action.noneRunning': 'No running session',
+  'quick.empty.running': 'Nothing is running right now',
+  'quick.select.hint': 'Pick a workspace above',
+  'quick.hint': 'Ctrl+R toggle · Enter new session · Esc close',
 }

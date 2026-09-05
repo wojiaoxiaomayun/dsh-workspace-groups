@@ -2,7 +2,7 @@
   <a href="./README.md">English</a> · <strong>简体中文</strong>
 </p>
 
-# dsh-workspace-groups
+# @dsh-xhl/workspace-groups
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
 ![DSH](https://img.shields.io/badge/DSH-0.1.1--rc.2-purple.svg)
@@ -20,7 +20,7 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
 
 ## 截图
 
-<img src="screenshot.png" alt="dsh-workspace-groups 工作区分组管理" width="280" />
+<img src="screenshot.png" alt="@dsh-xhl/workspace-groups 工作区分组管理" width="280" />
 
 ## 特性
 
@@ -84,20 +84,20 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
   YAML 规则自动归类（被隐藏的规则分类失效）→ **顶层**（不归组的项目显示为顶层行）。
   YAML 永不改写。
 
-## 安装（GitHub 分发）
+## 安装（npm）
 
 > 前置：已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > （`dsh` 命令可用），并已初始化好目标 profile（如内置 `web`）。
 
 ```sh
-dsh plugin --profile web add github:z-col/dsh-workspace-groups
+dsh plugin --profile web add @dsh-xhl/workspace-groups
 ```
 
 这会自动：
 
 1. 在 `~/.dsh/profiles/web/package.json` 的 `dependencies` 加入
-   `"dsh-workspace-groups": "github:z-col/dsh-workspace-groups"`（含版本/commit）
-2. 在 `dsh.profile.bundles` 末尾追加 `"dsh-workspace-groups"`
+   `"@dsh-xhl/workspace-groups": "^0.1.0"`
+2. 在 `dsh.profile.bundles` 末尾追加 `"@dsh-xhl/workspace-groups"`
 3. 运行 pnpm 安装并校验 bundle 层
 
 **安装后重启 web profile**（bundle 与 host 半只有在重启后才会被加载）：
@@ -111,23 +111,33 @@ dsh web
 
 ```sh
 dsh --profile web --dump-config | grep -A3 workspace-groups
-# 应出现 - id: workspace-groups / name: dsh-workspace-groups / config: {}
+# 应出现 - id: workspace-groups / name: @dsh-xhl/workspace-groups / config: {}
 curl http://127.0.0.1:3080/workspace-groups/config
 # 应返回 sidecar YAML 解析后的 JSON
 ```
 
+### 备选：从 GitHub 安装
+
+```sh
+dsh plugin --profile web add github:z-col/dsh-workspace-groups
+```
+
+这种方式会在 `dependencies` 写入
+`"dsh-workspace-groups": "github:z-col/dsh-workspace-groups"`（含版本/commit），
+直接使用仓库内已提交的 `lib/` 产物，无需先发布。
+
 ## 卸载
 
 ```sh
-dsh plugin --profile web remove dsh-workspace-groups
+dsh plugin --profile web remove @dsh-xhl/workspace-groups
 ```
 
 这会自动从 `dependencies` 删除该依赖并从 `dsh.profile.bundles` 移除对应行。
 同样需要**重启 web profile** 后生效。
 
 > 手动等价做法（任选其一，不要重复）：编辑 `~/.dsh/profiles/web/package.json`，
-> 从 `dependencies` 删除 `dsh-workspace-groups` 行、从 `dsh.profile.bundles`
-> 删除 `"dsh-workspace-groups"`，然后在该目录 `pnpm install`。
+> 从 `dependencies` 删除 `@dsh-xhl/workspace-groups` 行、从 `dsh.profile.bundles`
+> 删除 `"@dsh-xhl/workspace-groups"`，然后在该目录 `pnpm install`。
 
 ## 分类配置（sidecar）
 

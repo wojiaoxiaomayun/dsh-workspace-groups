@@ -1,5 +1,5 @@
 /**
- * tsdown build for dsh-workspace-groups: the host-half lib (lib/index.js, ESM
+ * tsdown build for @dsh-xhl/workspace-groups: the host-half lib (lib/index.js, ESM
  * node) plus one browser client bundle (lib/client.js, CJS closure factory).
  *
  * The client bundle replicates the official DSH client-bundle preset
@@ -67,7 +67,7 @@ function sourceAssetPath(source: string, importer: string): string {
 /** Node half: host plugin (reads the sidecar YAML, serves /workspace-groups config). */
 function nodeConfig(): UserConfig {
   return {
-    name: 'dsh-workspace-groups',
+    name: '@dsh-xhl/workspace-groups',
     entry: ['src/index.ts'],
     outDir: 'lib',
     format: ['esm'],
@@ -89,7 +89,7 @@ function nodeConfig(): UserConfig {
 /** Browser half: client bundle, wrapped as __ModuleLoader__.load. */
 function clientConfig(): UserConfig {
   return {
-    name: 'dsh-workspace-groups/client',
+    name: '@dsh-xhl/workspace-groups/client',
     entry: { client: 'src/client/index.ts' },
     // Shares lib/ with the node half (entryFileNames pins lib/client.js;
     // clean is off so the node output survives).
@@ -110,7 +110,7 @@ function clientConfig(): UserConfig {
         // @deepseek-ai/* value imports only through the module-table rows;
         // cross-plugin value imports are build errors (type-only imports are
         // erased and never reach this gate).
-        name: 'dsh-workspace-groups-client-purity',
+        name: '@dsh-xhl/workspace-groups-client-purity',
         resolveId(source: string) {
           if (!source.startsWith('@deepseek-ai/')) return null
           if (isRequested(source)) return null
@@ -122,7 +122,7 @@ function clientConfig(): UserConfig {
       },
       {
         // `*.css?inline` -> compiled CSS text; the plugin injects/cleans it via ctx.effect.
-        name: 'dsh-workspace-groups-css-inline',
+        name: '@dsh-xhl/workspace-groups-css-inline',
         resolveId(source: string, importer: string | undefined) {
           if (!source.endsWith(`.css${INLINE_CSS_QUERY}`)) return null
           const stylesheet = source.slice(0, -INLINE_CSS_QUERY.length)
@@ -145,7 +145,7 @@ function clientConfig(): UserConfig {
     ],
     outputOptions: {
       entryFileNames: 'client.js',
-      banner: `window.__ModuleLoader__.load({ id: "dsh-workspace-groups", factory: (require) => {`,
+      banner: `window.__ModuleLoader__.load({ id: "@dsh-xhl/workspace-groups", factory: (require) => {`,
       footer: 'return module.exports; } });',
       intro: 'var module = { exports: {} }; var exports = module.exports;',
     },

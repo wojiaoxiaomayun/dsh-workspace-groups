@@ -1,5 +1,5 @@
 /**
- * dsh-workspace-groups client half: registers the three-level grouped
+ * @dsh-xhl/workspace-groups client half: registers the three-level grouped
  * workspace browser into the `sidebar.workspaces` slot, shadowing the
  * official ui-workspace browser.
  *
@@ -86,7 +86,7 @@ function recentWorkspace(
  * @param ctx - client root context.
  */
 export function apply(ctx: Context): void {
-  ctx.effect(() => ctx.locale.register(NS, { zh, en }), 'dsh-workspace-groups: dictionaries')
+  ctx.effect(() => ctx.locale.register(NS, { zh, en }), '@dsh-xhl/workspace-groups: dictionaries')
 
   const searchSessions: GroupsBrowserInjected['searchSessions'] = async (query, signal) => {
     const result = await ctx.sessions.search(query, signal)
@@ -188,7 +188,7 @@ export function apply(ctx: Context): void {
       store: createGroupsViewStore(),
       inject: browserInjected,
       locale: NS,
-      registrant: 'dsh-workspace-groups',
+      registrant: '@dsh-xhl/workspace-groups',
     },
     GroupsBrowser,
   ))

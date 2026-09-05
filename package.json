@@ -1,5 +1,5 @@
 {
-  "name": "dsh-workspace-groups",
+  "name": "@dsh-xhl/workspace-groups",
   "version": "0.1.0",
   "description": "Complete workspace grouping manager for the DSH web sidebar: 分类 → 项目 → 会话 three-level tree, manual group create/rename/delete, drag-and-drop grouping & ordering with insertion indicator, rule-based auto-classification, tree search. Sidecar YAML + runtime overlay, zero core-storage intrusion.",
   "keywords": [
@@ -15,6 +15,9 @@
   ],
   "type": "module",
   "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "https://github.com/z-col/dsh-workspace-groups"
@@ -36,7 +39,10 @@
   "files": [
     "lib",
     "cordis.patch.yml",
-    "README.md"
+    "README.md",
+    "README_ZH.md",
+    "screenshot.png",
+    "workspace-groups.example.yaml"
   ],
   "engines": {
     "node": ">=20"
@@ -60,7 +66,7 @@
     }
   },
   "scripts": {
-    "build": "rm -rf lib && pnpm build:types && tsdown",
+    "build": "node -e \"require('node:fs').rmSync('lib', { recursive: true, force: true })\" && pnpm build:types && tsdown",
     "build:types": "tsc -p tsconfig.build.json --noEmit false --declaration --emitDeclarationOnly --outDir lib/types",
     "watch": "tsdown --watch",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",

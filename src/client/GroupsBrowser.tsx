@@ -40,6 +40,7 @@ import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type Manua
 import type { GroupsBrowserProps } from './contract.ts'
 import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
 import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, WorkspaceRow } from './rows.tsx'
+import { QuickPanel } from './QuickPanel.tsx'
 import css from './styles.css?inline'
 
 const SEARCH_DEBOUNCE_MS = 250
@@ -177,6 +178,21 @@ export function GroupsBrowser({
     return () => { style.remove() }
   }, [])
 
+  // Ctrl+R toggles the quick switch panel. Capture phase + preventDefault:
+  // beats the browser's page-reload default and any shell-level handler.
+  const [quickOpen, setQuickOpen] = useState(false)
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent): void => {
+      if (e.ctrlKey && !e.altKey && !e.metaKey && !e.shiftKey && (e.key === 'r' || e.key === 'R')) {
+        e.preventDefault()
+        e.stopPropagation()
+        setQuickOpen(v => !v)
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => window.removeEventListener('keydown', onKeyDown, true)
+  }, [])
+
   // Grouping config from the host route + the runtime manual overlay.
   const [config, setConfig] = useState<GroupsConfig>({ categories: [] })
   const [manual, setManual] = useState<NormalizedManual>(EMPTY_MANUAL)
@@ -305,6 +321,15 @@ export function GroupsBrowser({
     }, manual, pendingInteractions),
     [list, workspaces, archivedSessionIds, config, manual, pendingInteractions, expandedCategories, expandedWorkspaces],
   )
+  // Quick panel (Ctrl+R): category label per grouped workspace id (the tree
+  // derivation already resolved grouping; top-level workspaces stay absent).
+  const categoryByWorkspace = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const category of groups) {
+      for (const workspace of category.workspaces) map.set(workspace.workspaceId as string, category.label)
+    }
+    return map
+  }, [groups])
   // While dragging a project, an empty top-level area must still show a landing
   // line — otherwise a project can never be dragged OUT of a group when every
   // project is currently grouped.
@@ -1089,6 +1114,21 @@ export function GroupsBrowser({
       >
         <div className="wgAddError" role="alert">{addError}</div>
       </Modal>
+
+      {/* Ctrl+R quick switch panel (conditionally mounted: fresh query per open). */}
+      {quickOpen && (
+        <QuickPanel
+          onClose={() => { setQuickOpen(false) }}
+          list={list}
+          workspaces={workspaces}
+          archivedSessionIds={archivedSessionIds}
+          categoryByWorkspace={categoryByWorkspace}
+          startSession={startSession}
+          openSession={open}
+          now={now}
+          t={t}
+        />
+      )}
     </div>
   )
 }

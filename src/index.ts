@@ -1,5 +1,5 @@
 /**
- * dsh-workspace-groups host half: serves the sidecar grouping config to the
+ * @dsh-xhl/workspace-groups host half: serves the sidecar grouping config to the
  * browser half and persists the runtime grouping overlay.
  *
  * Routes:
@@ -24,7 +24,7 @@ import {
 } from './host-manual.ts'
 
 /** Plugin identity for cordis.yml rows. */
-export const name = 'dsh-workspace-groups'
+export const name = '@dsh-xhl/workspace-groups'
 
 /** Services required before mounting: the webserver route. */
 export const inject = ['webServer']
@@ -91,7 +91,7 @@ export function apply(ctx: GroupsContext): void {
       })
       res.end(req.method === 'HEAD' ? undefined : body)
     },
-  }), 'dsh-workspace-groups: /workspace-groups/config route')
+  }), '@dsh-xhl/workspace-groups: /workspace-groups/config route')
 
   ctx.effect(() => ctx.webServer.register({
     kind: 'exact',
@@ -134,5 +134,5 @@ export function apply(ctx: GroupsContext): void {
       })
       res.end(body)
     },
-  }), 'dsh-workspace-groups: /workspace-groups/manual route')
+  }), '@dsh-xhl/workspace-groups: /workspace-groups/manual route')
 }

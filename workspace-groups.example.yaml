@@ -1,4 +1,4 @@
-# dsh-workspace-groups 侧车配置（sidecar config）
+# @dsh-xhl/workspace-groups 侧车配置（sidecar config）
 #
 # 本文件控制侧边栏的分类规则：左侧「分类文件夹 → 项目文件夹 → 会话」三层树
 # 的分类如何划分。修改后刷新页面即可生效，无需改代码、无需重启 DSH、不触碰
