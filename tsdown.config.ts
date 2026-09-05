@@ -4,10 +4,10 @@
  *
  * The client bundle replicates the official DSH client-bundle preset
  * (packages/client/tsdown.client.ts, same shape as dsh-better-sidebar and the
- * official ui-* client packages):
+ * official ui-* client packages), aligned with dsh-v0.1.2-rc.1:
  * - externals resolve through the loader module table at runtime (the
- *   PLATFORM_MODULES seed list from packages/client/web/src/platform.ts,
- *   plus the runtime/client exemption),
+ *   PLATFORM_MODULES seed list from packages/client/web/src/platform.ts —
+ *   runtime/client is gone; dsh-client-store is a baseline row),
  * - everything else is inlined into the bundle,
  * - the purity gate rejects any other @deepseek-ai value import: cross-plugin
  *   collaboration goes through cordis services / slots, never value imports,
@@ -31,16 +31,21 @@ const NODE_BUILTINS = new Set([
   ...builtinModules.map(id => `node:${id}`),
 ])
 
-/** Module specifiers the web shell shares into the frozen module table (the official PLATFORM_MODULES list, plus the runtime/client exemption). */
+/**
+ * Module specifiers the web shell shares into the frozen module table — the
+ * official PLATFORM_MODULES list (packages/client/web/src/platform.ts,
+ * dsh-v0.1.2-rc.1). 0.1.2 移除了 runtime/client 豁免行；store 引擎独立为
+ * `@deepseek-ai/dsh-client-store` 并进入基线表。
+ */
 const CLIENT_EXTERNALS = [
   'react',
   'react/jsx-runtime',
   'react-dom',
   'react-dom/client',
   '@deepseek-ai/cordis',
+  '@deepseek-ai/dsh-client-store',
   '@deepseek-ai/dsh-client-ui-slots',
   '@deepseek-ai/dsh-client-ui-primitives',
-  '@deepseek-ai/dsh-client-runtime/client',
 ] as const
 
 /** Requested-from-module-table specifiers (kept as imports, never inlined). */

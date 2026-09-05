@@ -5,20 +5,15 @@
  * self-contained via `pickDirectory`), and no locale-keyed naming collision.
  */
 import type {
-  PropsHooks,
   PropsLocale,
   PropsRuntime,
   PropsStore,
 } from '@deepseek-ai/dsh-client-ui-slots'
 // Type-only: pulls the sidebar shell's SlotMap merge (sidebar.workspaces).
 import type {} from '@deepseek-ai/dsh-client-ui-sidebar/client'
-import type { HostDescriptionSource } from '@deepseek-ai/dsh-client-connection/client'
-import type {
-  SessionId,
-  SessionSearchResultItem,
-  WorkspaceId,
-  WorkspaceView,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { createGroupsViewStore } from './stores.ts'
 
 /** Injected share (arrives via the register inject factory). */
@@ -52,16 +47,10 @@ export type GroupsBrowserInjected = {
   createWorkspace: (input: { path: string }) => Promise<WorkspaceView>
   /** Ask the local Host to open its native single-directory chooser (self-contained Add Workspace). */
   pickDirectory: () => Promise<string | null>
-  /** Browser-private injected hooks (host description; bound by the slot renderer). */
-  hooks: {
-    /** Current generation's Host description. */
-    hostDescription: HostDescriptionSource
-  }
 }
 
 /** Full browser props: shell owner share + viewing store + injected actions + locale seat. */
 export type GroupsBrowserProps = PropsRuntime<'sidebar.workspaces'> &
   PropsStore<ReturnType<typeof createGroupsViewStore>> &
-  Omit<GroupsBrowserInjected, 'hooks'> &
-  PropsHooks<GroupsBrowserInjected['hooks']> &
+  GroupsBrowserInjected &
   PropsLocale<'workspaceGroups'>

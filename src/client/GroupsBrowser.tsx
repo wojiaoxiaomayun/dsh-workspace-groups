@@ -24,7 +24,10 @@ import {
   Modal,
   Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
-import type { SessionId, SessionListState, SessionSearchResultItem, WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import type { SessionListState, SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   displayCategoryKeys,
   moveAfter,
@@ -147,6 +150,7 @@ export function GroupsBrowser({
   expandSidebar,
   useSessions,
   useWorkspaces,
+  useSessionPendingInteraction,
   useStore,
   actions,
   startSession,
@@ -199,6 +203,7 @@ export function GroupsBrowser({
   const workspaceExpansion = useStore(s => s.workspaceExpansion)
 
   const list = useSessions(s => s)
+  const pendingInteractions = useSessionPendingInteraction(s => s)
   const current = list.current
   const currentWorkspaceKey = current === undefined
     ? undefined
@@ -289,16 +294,16 @@ export function GroupsBrowser({
     () => deriveGroups(list, workspaces, archivedSessionIds, config, {
       expandedCategories,
       expandedWorkspaces,
-    }, manual),
-    [list, workspaces, archivedSessionIds, config, manual, expandedCategories, expandedWorkspaces],
+    }, manual, pendingInteractions),
+    [list, workspaces, archivedSessionIds, config, manual, pendingInteractions, expandedCategories, expandedWorkspaces],
   )
   // Top-level (ungrouped) workspace rows, rendered after the group folders.
   const topLevel = useMemo(
     () => deriveTopLevel(list, workspaces, archivedSessionIds, config, {
       expandedCategories,
       expandedWorkspaces,
-    }, manual),
-    [list, workspaces, archivedSessionIds, config, manual, expandedCategories, expandedWorkspaces],
+    }, manual, pendingInteractions),
+    [list, workspaces, archivedSessionIds, config, manual, pendingInteractions, expandedCategories, expandedWorkspaces],
   )
   // While dragging a project, an empty top-level area must still show a landing
   // line — otherwise a project can never be dragged OUT of a group when every
@@ -855,6 +860,7 @@ export function GroupsBrowser({
             workspaces={workspaces}
             config={config}
             archivedSessionIds={archivedSessionIds}
+            pendingInteractions={pendingInteractions}
             query={normalizedQuery}
             remote={remoteSearch}
             resultLimit={searchResultLimit}
@@ -1283,11 +1289,12 @@ function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, t
  * 分类文件夹 → 项目文件夹 → 命中会话行. Reuses the same row components as
  * the idle tree, so search keeps the same folder hierarchy the user is used to.
  */
-function SearchBody({ list, workspaces, config, archivedSessionIds, query, remote, resultLimit, current, now, open, manual, t }: {
+function SearchBody({ list, workspaces, config, archivedSessionIds, pendingInteractions, query, remote, resultLimit, current, now, open, manual, t }: {
   list: SessionListState
   workspaces: readonly WorkspaceView[]
   config: GroupsConfig
   archivedSessionIds: readonly SessionId[]
+  pendingInteractions: SessionPendingInteractionSnapshot
   query: string
   remote: RemoteSearchState
   resultLimit: number
@@ -1303,8 +1310,8 @@ function SearchBody({ list, workspaces, config, archivedSessionIds, query, remot
     [list, workspaces, config, query, archivedSessionIds, currentRemote, resultLimit],
   )
   const searchTree = useMemo(
-    () => deriveSearchGroups(list, workspaces, config, matches.matchedIds, archivedSessionIds, manual, matches.snippetsBySession),
-    [list, workspaces, config, matches, archivedSessionIds, manual],
+    () => deriveSearchGroups(list, workspaces, config, matches.matchedIds, archivedSessionIds, manual, matches.snippetsBySession, pendingInteractions),
+    [list, workspaces, config, matches, archivedSessionIds, manual, pendingInteractions],
   )
   const groups = searchTree.categories
   const searchTopLevel = searchTree.topLevel

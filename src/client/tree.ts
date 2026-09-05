@@ -4,19 +4,37 @@
  * scans. Session visibility rules mirror the official ui-workspace tree
  * (blank rows only when current, archived excluded, subagent rows excluded).
  */
-import {
-  indexSubagentDescendants,
-  type PendingInteractionStatus,
-  type SessionId,
-  type SessionListState,
-  type SessionSearchResultItem,
-  type SessionSummary,
-  type SubagentDescendantSummary,
-  type WorkspaceId,
-  type WorkspaceView,
-} from '@deepseek-ai/dsh-client-runtime/client'
+import type {
+  SessionListState,
+  SessionSearchResultItem,
+  SessionSummary,
+} from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
+// Type-only: the pending-interaction base contract (0.1.2 把 pendingInteraction
+// 从 SessionSummary 挪到了 ui-session 的独立快照).
+import type { SessionPendingInteractionBase } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { indexSubagentDescendants, type SubagentDescendantSummary } from './subagent-lineage.ts'
 import { effectiveCategories, orderedWorkspaceIds, resolveCategory } from '../core/matcher.ts'
 import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type ManualGroups } from '../core/types.ts'
+
+/** Pending interaction kinds with dedicated Workspace-row presentation. */
+export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
+
+/** Current effective pending interaction by Session (ui-session snapshot). */
+type PendingInteractions = ReadonlyMap<SessionId, SessionPendingInteractionBase>
+
+/** Keep navigation presentation independent from domain-owned interaction objects. */
+function visiblePendingKind(kind: string | undefined): SessionPendingInteractionStatus | undefined {
+  switch (kind) {
+    case 'approval':
+    case 'plan-review':
+    case 'question':
+      return kind
+    default:
+      return undefined
+  }
+}
 
 /** One top-level session row inside a workspace folder. */
 export interface SessionNode {
@@ -25,7 +43,7 @@ export interface SessionNode {
   title: string
   /** The provisional blank session (renderer shows the localized New Session title). */
   blank: boolean
-  pendingInteraction?: PendingInteractionStatus
+  pendingInteraction?: SessionPendingInteractionStatus
   running: boolean
   /** Running descendants connected through uninterrupted subagent-origin lineage. */
   runningSubagentCount: number
@@ -100,7 +118,9 @@ function sessionTitle(session: SessionSummary): string {
 function sessionNode(
   s: SessionSummary,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
+  pendingInteractions: PendingInteractions,
 ): SessionNode {
+  const pending = visiblePendingKind(pendingInteractions.get(s.id)?.kind)
   return {
     id: s.id,
     title: sessionTitle(s),
@@ -109,7 +129,7 @@ function sessionNode(
     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
     completed: s.completed === true,
     updatedAt: s.updatedAt,
-    ...(s.pendingInteraction === undefined ? {} : { pendingInteraction: s.pendingInteraction }),
+    ...(pending === undefined ? {} : { pendingInteraction: pending }),
   }
 }
 
@@ -119,13 +139,14 @@ function workspaceSessions(
   workspace: WorkspaceView,
   archived: ReadonlySet<SessionId>,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
+  pendingInteractions: PendingInteractions,
 ): SessionNode[] {
   const nodes: SessionNode[] = []
   for (const id of workspace.sessionIds) {
     const summary = list.byId[id]
     if (summary === undefined) continue // account may lead the list pull; appears when the summary lands
     if (!sessionVisible(summary, list.current, archived)) continue
-    nodes.push(sessionNode(summary, descendants))
+    nodes.push(sessionNode(summary, descendants, pendingInteractions))
   }
   return nodes
 }
@@ -139,6 +160,8 @@ function workspaceSessions(
  * @param view - local expansion arrays.
  * @param manual - runtime overlay (manual groups + overrides). A workspace's
  * manual override wins over rule classification; removing it reverts to rules.
+ * @param pendingInteractions - ui-session pending interaction snapshot (drives
+ * the row warning dot); defaults to none (tests).
  * @returns category sections in render order (rule categories first, then
  * manual-only ones, uncategorized last). Manual groups render even while
  * empty; empty rule buckets stay hidden.
@@ -150,6 +173,7 @@ export function deriveGroups(
   config: GroupsConfig,
   view: GroupsTreeView,
   manual: ManualGroups,
+  pendingInteractions: PendingInteractions = new Map(),
 ): CategoryNode[] {
   const archived = new Set(archivedSessionIds)
   const expandedCategories = new Set(view.expandedCategories)
@@ -188,7 +212,7 @@ export function deriveGroups(
     for (const workspaceId of ordered) {
       const workspace = bucket.find(w => w.workspaceId === workspaceId)
       if (workspace === undefined) continue
-      const sessions = workspaceSessions(list, workspace, archived, descendants)
+      const sessions = workspaceSessions(list, workspace, archived, descendants, pendingInteractions)
       const wsExpanded = expandedWorkspaces.has(workspace.workspaceId as string)
       const wsContainsCurrent = workspace.workspaceId === currentWorkspaceId
       if (wsContainsCurrent) containsCurrent = true
@@ -228,6 +252,7 @@ export function deriveTopLevel(
   config: GroupsConfig,
   view: GroupsTreeView,
   manual: ManualGroups,
+  pendingInteractions: PendingInteractions = new Map(),
 ): WorkspaceGroupNode[] {
   const archived = new Set(archivedSessionIds)
   const expandedWorkspaces = new Set(view.expandedWorkspaces)
@@ -245,7 +270,7 @@ export function deriveTopLevel(
   for (const workspaceId of ordered) {
     const workspace = workspaces.find(w => w.workspaceId === workspaceId)
     if (workspace === undefined) continue
-    const sessions = workspaceSessions(list, workspace, archived, descendants)
+    const sessions = workspaceSessions(list, workspace, archived, descendants, pendingInteractions)
     const wsExpanded = expandedWorkspaces.has(workspaceId)
     nodes.push({
       workspaceId: workspace.workspaceId,
@@ -365,6 +390,8 @@ export interface SearchTree {
  * @param archivedSessionIds - registry-global archive set.
  * @param manual - runtime overlay (manual groups + overrides).
  * @param snippetsBySession - optional content-match snippets keyed by session id.
+ * @param pendingInteractions - ui-session pending interaction snapshot (drives
+ * the row warning dot); defaults to none (tests).
  * @returns group folders in render order plus top-level matched workspaces,
  * pruned to matched branches only.
  */
@@ -376,6 +403,7 @@ export function deriveSearchGroups(
   archivedSessionIds: readonly SessionId[],
   manual: ManualGroups,
   snippetsBySession?: ReadonlyMap<SessionId, string>,
+  pendingInteractions: PendingInteractions = new Map(),
 ): SearchTree {
   const archived = new Set(archivedSessionIds)
   const descendants = indexSubagentDescendants(list.byId)
@@ -391,7 +419,7 @@ export function deriveSearchGroups(
       const summary = list.byId[id]
       if (summary === undefined || !matchedIds.has(id)) continue
       if (!sessionVisible(summary, list.current, archived)) continue
-      const node = sessionNode(summary, descendants)
+      const node = sessionNode(summary, descendants, pendingInteractions)
       const snippet = snippetsBySession?.get(id)
       nodes.push({
         ...node,

@@ -3,19 +3,15 @@
  * overrides win over rules, manual groups render while empty, rule buckets
  * hide while empty, and top-level (ungrouped) workspaces render as separate
  * rows after the group folders (no "未分类" bucket).
- * Pure derivation (no DOM), fixtures cast to the runtime contract types.
+ * Pure derivation (no DOM), fixtures cast to the controller contract types.
  *
- * The browser runtime bundle self-registers via window.__ModuleLoader__ and
- * cannot execute in a plain node process, so the one value import it provides
- * (`indexSubagentDescendants`) is stubbed; the fixtures carry no subagents.
+ * 0.1.2 起 `indexSubagentDescendants` 是插件本地实现（subagent-lineage.ts），
+ * 纯函数可直接在 node 里执行，无需再 mock 浏览器运行时包。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-vi.mock('@deepseek-ai/dsh-client-runtime/client', () => ({
-  indexSubagentDescendants: () => new Map(),
-}))
-
-import type { SessionListState, SessionSummary, WorkspaceView } from '@deepseek-ai/dsh-client-runtime/client'
+import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import { deriveGroups, deriveTopLevel } from '../src/client/tree.ts'
 import type { GroupsConfig, ManualGroups } from '../src/core/types.ts'
 
