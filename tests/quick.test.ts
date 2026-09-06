@@ -1,9 +1,10 @@
 /**
  * Quick-panel data-shaping tests (quick.ts): running-row eligibility
- * (running, non-blank, non-subagent, non-archived), recency ordering,
- * per-workspace latest-running pick, per-workspace running counts, the
- * current-open-workspace resolution, and the ranked workspace search
- * (prefix > title > category > path).
+ * (running, non-blank, non-subagent, non-archived), recency ordering, the
+ * all-sessions feed (running pinned on top, then recency, tree visibility),
+ * the order-preserving session search, per-workspace latest-running pick,
+ * per-workspace running counts, the current-open-workspace resolution, and
+ * the ranked workspace search (prefix > title > category > path).
  */
 import { describe, expect, it } from 'vitest'
 
@@ -11,6 +12,8 @@ import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-sess
 import type { WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import {
   activeWorkspaceId,
+  allSessions,
+  filterSessions,
   filterWorkspaces,
   latestRunningInWorkspace,
   runningCountByWorkspace,
@@ -19,12 +22,12 @@ import {
 
 function session(
   id: string,
-  opts: { running?: boolean; blank?: boolean; subagent?: boolean; updatedAt?: number } = {},
+  opts: { running?: boolean; blank?: boolean; subagent?: boolean; updatedAt?: number; title?: string } = {},
 ): SessionSummary {
   return {
     id,
     blank: opts.blank ?? false,
-    displayTitle: `会话-${id}`,
+    displayTitle: opts.title ?? `会话-${id}`,
     running: opts.running ?? false,
     completed: false,
     updatedAt: opts.updatedAt ?? 1_700_000_000_000,
@@ -68,6 +71,63 @@ describe('runningSessions', () => {
     ])
     const out = runningSessions(list, new Set(['a']))
     expect(out.map(s => s.id)).toEqual(['b'])
+  })
+})
+
+describe('allSessions', () => {
+  it('pins running on top, then recency, across the whole list', () => {
+    const list = listState([
+      session('idle-new', { updatedAt: 900 }),
+      session('run-old', { running: true, updatedAt: 100 }),
+      session('idle-old', { updatedAt: 50 }),
+      session('run-new', { running: true, updatedAt: 200 }),
+    ])
+    const out = allSessions(list, new Set(), undefined)
+    expect(out.map(s => s.id)).toEqual(['run-new', 'run-old', 'idle-new', 'idle-old'])
+  })
+
+  it('mirrors tree visibility: subagent/archived never, blank only while current', () => {
+    const list = listState([
+      session('idle', { running: false }),
+      session('sub', { running: true, subagent: true, updatedAt: 400 }),
+      session('blank', { blank: true, updatedAt: 300 }),
+      session('blank-current', { blank: true, updatedAt: 200 }),
+    ], 'blank-current')
+    const out = allSessions(list, new Set(['idle']), 'blank-current')
+    expect(out.map(s => s.id)).toEqual(['blank-current'])
+  })
+})
+
+describe('filterSessions', () => {
+  const sessions = [
+    session('run', { running: true, updatedAt: 200, title: 'Refactor host' }),
+    session('idle-a', { updatedAt: 100, title: 'Fix loader' }),
+    session('idle-b', { updatedAt: 50, title: 'Performance tune' }),
+  ]
+
+  it('empty query returns the input order (running first, then recency)', () => {
+    expect(filterSessions(sessions, '  ', () => undefined).map(s => s.id)).toEqual(['run', 'idle-a', 'idle-b'])
+  })
+
+  it('matches display title or workspace title, preserving the incoming order', () => {
+    // `run` hits via its own title, `idle-a` only via its workspace title.
+    const out = filterSessions(sessions, 'refactor', s => (s.id === 'idle-a' ? 'Refactor docs' : 'Other'))
+    expect(out.map(s => s.id)).toEqual(['run', 'idle-a'])
+  })
+
+  it('never re-sorts: matches keep running-first/recency order, not title order', () => {
+    const ordered = [
+      session('run', { running: true, updatedAt: 200, title: 'Zebra run' }),
+      session('idle-a', { updatedAt: 100, title: 'Alpha job' }),
+      session('idle-b', { updatedAt: 50, title: 'Beta run' }),
+    ]
+    const out = filterSessions(ordered, 'run', () => undefined)
+    expect(out.map(s => s.id)).toEqual(['run', 'idle-b'])
+  })
+
+  it('caps the render at the limit', () => {
+    const many = Array.from({ length: 300 }, (_, i) => session(`s${i}`))
+    expect(filterSessions(many, '', () => undefined)).toHaveLength(200)
   })
 })
 

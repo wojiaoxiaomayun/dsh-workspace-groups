@@ -15,6 +15,29 @@ import type { WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/cl
  */
 export declare function runningSessions(list: SessionListState, archived: ReadonlySet<SessionId>): SessionSummary[];
 /**
+ * Every quick-switchable session across the whole list — the sessions tab's
+ * data: running rows pinned on top, everything else under them, both groups
+ * newest first. Visibility mirrors the tree (subagent rows never; archived
+ * never; a blank row only while it is the open session).
+ * @param list - sessions list snapshot.
+ * @param archived - registry-global archive set (archived rows never surface).
+ * @param current - `list.current` (the open session; keeps its blank row visible).
+ * @returns summaries with running first, then recency (id as deterministic tiebreak).
+ */
+export declare function allSessions(list: SessionListState, archived: ReadonlySet<SessionId>, current: SessionId | undefined): SessionSummary[];
+/**
+ * Session search for the quick panel: display-title or owning-workspace-title
+ * substring match (trimmed, case-insensitive). Filters only — the incoming
+ * running-first/recency order is preserved verbatim, so "running on top"
+ * survives any query.
+ * @param sessions - allSessions() output (running pinned on top, then recency).
+ * @param query - raw query.
+ * @param workspaceTitleOf - owning workspace title resolver (sub-line source).
+ * @param limit - hard render cap.
+ * @returns matching sessions in the given order.
+ */
+export declare function filterSessions(sessions: readonly SessionSummary[], query: string, workspaceTitleOf: (session: SessionSummary) => string | undefined, limit?: number): SessionSummary[];
+/**
  * Most recently updated running session inside one workspace.
  * @param list - sessions list snapshot.
  * @param workspace - target workspace (its session account order is irrelevant;

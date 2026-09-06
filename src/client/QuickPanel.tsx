@@ -4,13 +4,14 @@
  * - Workspaces tab: search real Workspaces, select one, then either start a
  *   New Session in it or jump straight to its most recently updated running
  *   session (the button reads the none-running state and disables).
- * - Running tab: every running top-level session across workspaces, newest
- *   first; one click opens it.
+ * - Sessions tab: every top-level session across workspaces — running ones
+ *   pinned on top, everything else under them, both groups newest first; one
+ *   click (or Enter) opens it. The shared search input filters by session or
+ *   workspace title and never re-sorts, so the running-first order survives.
  *
  * Current-row marker: the open workspace (workspaces tab) and the open
- * session (running tab, when it is running) render `.wgQuickRowCurrent`;
- * with no current session — or one no listed workspace holds — nothing is
- * marked.
+ * session (sessions tab) render `.wgQuickRowCurrent`; with no current
+ * session — or one no listed workspace holds — nothing is marked.
  *
  * Mount discipline: the parent conditionally mounts this component, so every
  * open starts from a fresh query/selection (quick-switcher semantics). The
@@ -26,11 +27,11 @@ import type { PropsLocale } from '@deepseek-ai/dsh-client-ui-slots'
 import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
-import { activeWorkspaceId, filterWorkspaces, latestRunningInWorkspace, runningCountByWorkspace, runningSessions } from './quick.ts'
+import { activeWorkspaceId, allSessions, filterSessions, filterWorkspaces, latestRunningInWorkspace, runningCountByWorkspace, runningSessions } from './quick.ts'
 import { relativeTimeLabel } from './rows.tsx'
 
 /** Which surface of the quick panel is active. */
-export type QuickTab = 'workspaces' | 'running'
+export type QuickTab = 'workspaces' | 'sessions'
 
 /** The locale seat's translate function (same shape GroupsBrowser receives). */
 type Translate = PropsLocale<'workspaceGroups'>['t']
@@ -104,14 +105,36 @@ export function QuickPanel({
     [workspaces, currentSessionId],
   )
 
+  // Sessions tab data: every top-level session, running pinned on top then
+  // recency, filtered by the shared search query (filter never re-sorts).
+  const sessions = useMemo(
+    () => allSessions(list, archived, currentSessionId),
+    [list, archived, currentSessionId],
+  )
+  // Owning workspace title per session id (row sub-line + search field);
+  // first workspace wins — a session lives in exactly one.
+  const workspaceTitleBySession = useMemo(() => {
+    const map = new Map<SessionId, string>()
+    for (const workspace of workspaces) {
+      for (const sessionId of workspace.sessionIds) {
+        if (!map.has(sessionId)) map.set(sessionId, workspace.title)
+      }
+    }
+    return map
+  }, [workspaces])
+  const filteredSessions = useMemo(
+    () => filterSessions(sessions, query, s => workspaceTitleBySession.get(s.id)),
+    [sessions, query, workspaceTitleBySession],
+  )
+
   const selected = selectedId === null
     ? undefined
     : workspaces.find(w => (w.workspaceId as string) === selectedId)
   const selectedRunningId = selected === undefined ? undefined : latestRunningInWorkspace(list, selected)
 
-  // Focus the search input whenever the workspaces tab becomes reachable.
+  // Focus the search input whenever a tab becomes reachable (both tabs own it).
   useEffect(() => {
-    if (tab === 'workspaces') inputRef.current?.focus()
+    inputRef.current?.focus()
   }, [tab])
 
   // Keep the keyboard-active row visible while arrowing through the list.
@@ -125,27 +148,40 @@ export function QuickPanel({
     onClose()
   }
 
-  /** Open the running session and close. */
-  const launchRunning = (sessionId: SessionId): void => {
+  /** Open a session row and close (sessions tab click or Enter). */
+  const launchSession = (sessionId: SessionId): void => {
     openSession(sessionId)
     onClose()
   }
 
-  /** Search-input keyboard: arrows move the active row; Enter selects or launches New Session. */
+  /** Switch tabs; the query carries over, the per-tab selection resets. */
+  const switchTab = (next: QuickTab): void => {
+    setTab(next)
+    setSelectedId(null)
+    setActiveIndex(0)
+  }
+
+  /** Search-input keyboard: arrows move the active row; Enter confirms it. */
   const onSearchKeyDown = (e: KeyboardEvent<HTMLInputElement>): void => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setActiveIndex(i => Math.min(i + 1, Math.max(filtered.length - 1, 0)))
+      const max = (tab === 'workspaces' ? filtered.length : filteredSessions.length) - 1
+      setActiveIndex(i => Math.min(i + 1, Math.max(max, 0)))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setActiveIndex(i => Math.max(i - 1, 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (selected === undefined) {
-        const target = filtered[activeIndex]
-        if (target !== undefined) setSelectedId(target.workspaceId as string)
+      if (tab === 'workspaces') {
+        if (selected === undefined) {
+          const target = filtered[activeIndex]
+          if (target !== undefined) setSelectedId(target.workspaceId as string)
+        } else {
+          launchNewSession(selected)
+        }
       } else {
-        launchNewSession(selected)
+        const target = filteredSessions[activeIndex]
+        if (target !== undefined) launchSession(target.id)
       }
     }
   }
@@ -186,40 +222,41 @@ export function QuickPanel({
               role="tab"
               aria-selected={tab === 'workspaces'}
               className={`wgQuickTab${tab === 'workspaces' ? ' wgQuickTabActive' : ''}`}
-              onClick={() => { setTab('workspaces') }}
+              onClick={() => { switchTab('workspaces') }}
             >
               {t('quick.tab.workspaces')}
             </button>
             <button
               type="button"
               role="tab"
-              aria-selected={tab === 'running'}
-              className={`wgQuickTab${tab === 'running' ? ' wgQuickTabActive' : ''}`}
-              onClick={() => { setTab('running') }}
+              aria-selected={tab === 'sessions'}
+              className={`wgQuickTab${tab === 'sessions' ? ' wgQuickTabActive' : ''}`}
+              onClick={() => { switchTab('sessions') }}
             >
-              {t('quick.tab.running')}
+              {t('quick.tab.sessions')}
               {running.length > 0 && <span className="wgQuickTabCount">{running.length}</span>}
             </button>
           </div>
         </div>
 
+        {/* Shared search: workspaces on one tab, sessions on the other. */}
+        <div className="wgQuickSearchWrap">
+          <input
+            ref={inputRef}
+            className="wgQuickSearch"
+            value={query}
+            placeholder={tab === 'workspaces' ? t('quick.search.placeholder') : t('quick.search.sessions')}
+            aria-label={tab === 'workspaces' ? t('quick.search.placeholder') : t('quick.search.sessions')}
+            onChange={(e) => {
+              setQuery(e.target.value)
+              setSelectedId(null)
+              setActiveIndex(0)
+            }}
+            onKeyDown={onSearchKeyDown}
+          />
+        </div>
         {tab === 'workspaces' ? (
           <>
-            <div className="wgQuickSearchWrap">
-              <input
-                ref={inputRef}
-                className="wgQuickSearch"
-                value={query}
-                placeholder={t('quick.search.placeholder')}
-                aria-label={t('quick.search.placeholder')}
-                onChange={(e) => {
-                  setQuery(e.target.value)
-                  setSelectedId(null)
-                  setActiveIndex(0)
-                }}
-                onKeyDown={onSearchKeyDown}
-              />
-            </div>
             <div className="wgQuickList" role="listbox" aria-label={t('quick.tab.workspaces')}>
               {filtered.map((workspace, i) => {
                 const id = workspace.workspaceId as string
@@ -261,7 +298,7 @@ export function QuickPanel({
               <Button
                 variant="outline"
                 disabled={selected === undefined || selectedRunningId === undefined}
-                onClick={() => { if (selectedRunningId !== undefined) launchRunning(selectedRunningId) }}
+                onClick={() => { if (selectedRunningId !== undefined) launchSession(selectedRunningId) }}
               >
                 {selectedRunningId !== undefined ? t('quick.action.running') : t('quick.action.noneRunning')}
               </Button>
@@ -275,31 +312,34 @@ export function QuickPanel({
             </div>
           </>
         ) : (
-          <div className="wgQuickList" role="list" aria-label={t('quick.tab.running')}>
-            {running.map((session) => {
-              const workspace = workspaces.find(w => w.sessionIds.includes(session.id))
+          <div className="wgQuickList" role="listbox" aria-label={t('quick.tab.sessions')}>
+            {filteredSessions.map((session, i) => {
+              const workspaceTitle = workspaceTitleBySession.get(session.id) ?? ''
               const isCurrent = session.id === currentSessionId
               return (
                 <button
                   key={session.id}
+                  ref={i === activeIndex ? activeRowRef : undefined}
                   type="button"
-                  role="listitem"
+                  role="option"
+                  aria-selected={i === activeIndex}
                   aria-current={isCurrent || undefined}
-                  className={`wgQuickRow${isCurrent ? ' wgQuickRowCurrent' : ''}`}
-                  onClick={() => { launchRunning(session.id) }}
+                  className={`wgQuickRow${i === activeIndex ? ' wgQuickRowActive' : ''}${isCurrent ? ' wgQuickRowCurrent' : ''}`}
+                  onMouseEnter={() => { setActiveIndex(i) }}
+                  onClick={() => { launchSession(session.id) }}
                 >
                   <span className="wgQuickRowMain">
-                    <StateDot state="ongoing" />
-                    <span className="wgQuickRowTitle">{session.displayTitle}</span>
+                    <StateDot state={session.running ? 'ongoing' : 'done'} />
+                    <span className="wgQuickRowTitle">{session.blank ? t('newSession') : session.displayTitle}</span>
                     <span className="wgQuickTime">{relativeTimeLabel(session.updatedAt, now)}</span>
                   </span>
                   <span className="wgQuickRowSub">
-                    <span className="wgQuickRowPath">{workspace?.title ?? ''}</span>
+                    <span className="wgQuickRowPath">{workspaceTitle}</span>
                   </span>
                 </button>
               )
             })}
-            {running.length === 0 && <div className="wgQuickEmpty">{t('quick.empty.running')}</div>}
+            {filteredSessions.length === 0 && <div className="wgQuickEmpty">{t('quick.empty.sessions')}</div>}
           </div>
         )}
 

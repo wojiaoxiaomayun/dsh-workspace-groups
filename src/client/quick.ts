@@ -31,6 +31,64 @@ export function runningSessions(list: SessionListState, archived: ReadonlySet<Se
 }
 
 /**
+ * Every quick-switchable session across the whole list — the sessions tab's
+ * data: running rows pinned on top, everything else under them, both groups
+ * newest first. Visibility mirrors the tree (subagent rows never; archived
+ * never; a blank row only while it is the open session).
+ * @param list - sessions list snapshot.
+ * @param archived - registry-global archive set (archived rows never surface).
+ * @param current - `list.current` (the open session; keeps its blank row visible).
+ * @returns summaries with running first, then recency (id as deterministic tiebreak).
+ */
+export function allSessions(
+  list: SessionListState,
+  archived: ReadonlySet<SessionId>,
+  current: SessionId | undefined,
+): SessionSummary[] {
+  const out: SessionSummary[] = []
+  for (const id of list.ids) {
+    if (archived.has(id)) continue
+    const summary = list.byId[id]
+    if (summary === undefined) continue
+    if (summary.origin === 'subagent') continue
+    if (summary.blank && summary.id !== current) continue
+    out.push(summary)
+  }
+  out.sort((a, b) => {
+    if (a.running !== b.running) return a.running ? -1 : 1
+    return b.updatedAt !== a.updatedAt ? b.updatedAt - a.updatedAt : (a.id < b.id ? -1 : 1)
+  })
+  return out
+}
+
+/**
+ * Session search for the quick panel: display-title or owning-workspace-title
+ * substring match (trimmed, case-insensitive). Filters only — the incoming
+ * running-first/recency order is preserved verbatim, so "running on top"
+ * survives any query.
+ * @param sessions - allSessions() output (running pinned on top, then recency).
+ * @param query - raw query.
+ * @param workspaceTitleOf - owning workspace title resolver (sub-line source).
+ * @param limit - hard render cap.
+ * @returns matching sessions in the given order.
+ */
+export function filterSessions(
+  sessions: readonly SessionSummary[],
+  query: string,
+  workspaceTitleOf: (session: SessionSummary) => string | undefined,
+  limit = 200,
+): SessionSummary[] {
+  const q = query.trim().toLowerCase()
+  if (q === '') return sessions.slice(0, limit)
+  const out: SessionSummary[] = []
+  for (const session of sessions) {
+    const workspace = workspaceTitleOf(session)?.toLowerCase() ?? ''
+    if (session.displayTitle.toLowerCase().includes(q) || workspace.includes(q)) out.push(session)
+  }
+  return out.slice(0, limit)
+}
+
+/**
  * Most recently updated running session inside one workspace.
  * @param list - sessions list snapshot.
  * @param workspace - target workspace (its session account order is irrelevant;

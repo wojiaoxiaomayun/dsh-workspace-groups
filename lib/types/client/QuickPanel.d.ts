@@ -3,7 +3,7 @@ import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/c
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
 /** Which surface of the quick panel is active. */
-export type QuickTab = 'workspaces' | 'running';
+export type QuickTab = 'workspaces' | 'sessions';
 /** The locale seat's translate function (same shape GroupsBrowser receives). */
 type Translate = PropsLocale<'workspaceGroups'>['t'];
 /** Quick panel props: hooks snapshots + the two injected verbs + shared CSS context. */
