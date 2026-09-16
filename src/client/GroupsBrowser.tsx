@@ -21,7 +21,9 @@ import {
   IconFolderOpenOutline16,
   IconProjectAddOutline16,
   IconSearchOutline16,
+  IconWarningOutline16,
   Modal,
+  Toast,
   Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
@@ -40,6 +42,7 @@ import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type Manua
 import type { GroupsBrowserProps } from './contract.ts'
 import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
 import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, WorkspaceRow } from './rows.tsx'
+import { fetchOpenInApps, folderAppId, openPathInApp } from './open-folder.ts'
 import { QuickPanel } from './QuickPanel.tsx'
 import css from './styles.css?inline'
 
@@ -432,6 +435,33 @@ export function GroupsBrowser({
       console.warn('session archive rejected:', reason)
     })
   }
+
+  // "Open in folder": the host half of the official open-in-app plugin resolves
+  // which applications it can launch; the project row then just posts the
+  // project directory to that host's launch route. One availability read per
+  // mount — a host without the capability (or a refused read) leaves
+  // `folderApp` undefined, which drops the menu entry rather than failing.
+  const [folderApp, setFolderApp] = useState<string | undefined>(undefined)
+  const [folderError, setFolderError] = useState<{ id: number; text: string } | null>(null)
+  useEffect(() => {
+    const controller = new AbortController()
+    fetchOpenInApps(controller.signal).then((apps) => {
+      if (controller.signal.aborted) return
+      setFolderApp(folderAppId(apps))
+    }).catch(() => { /* no capability: the row simply offers no folder entry */ })
+    return () => { controller.abort() }
+  }, [])
+
+  const openInFolder = folderApp === undefined
+    ? undefined
+    : (workspaceId: WorkspaceId): void => {
+        const workspace = workspaces.find(w => w.workspaceId === workspaceId)
+        if (workspace === undefined) return
+        openPathInApp(folderApp, workspace.path).catch((reason: unknown) => {
+          const detail = reason instanceof Error ? reason.message : String(reason)
+          setFolderError({ id: Date.now(), text: `${t('workspace.openInFolderError')}: ${detail}` })
+        })
+      }
 
   // ---- Runtime group management ----------------------------------------------
 
@@ -939,6 +969,7 @@ export function GroupsBrowser({
                   setGroupDeleteError(null)
                 }}
                 onMoveOut={(workspaceId) => { void moveWorkspaceTo(workspaceId, UNCATEGORIZED_KEY) }}
+                onOpenInFolder={openInFolder}
                 canMoveOut={(workspaceId) => {
                   // The menu "移出分组" is offered for any project that
                   // currently sits inside a group (rule-classified or manual) —
@@ -983,6 +1014,7 @@ export function GroupsBrowser({
                 onSessionRename={onSessionRename}
                 onSessionArchive={onSessionArchive}
                 onFork={forkSession}
+                onOpenInFolder={openInFolder}
               />
             )}
           </div>
@@ -1115,6 +1147,17 @@ export function GroupsBrowser({
         <div className="wgAddError" role="alert">{addError}</div>
       </Modal>
 
+      {/* "Open in folder" failure: transient banner, keyed per attempt so a
+          repeat failure restarts the cycle. */}
+      {folderError !== null && (
+        <Toast
+          key={folderError.id}
+          text={folderError.text}
+          icon={<IconWarningOutline16 size={16} />}
+          onDone={() => { setFolderError(null) }}
+        />
+      )}
+
       {/* Ctrl+R quick switch panel (conditionally mounted: fresh query per open). */}
       {quickOpen && (
         <QuickPanel
@@ -1146,7 +1189,7 @@ function categoriesForCurrent(
 }
 
 /** One category section: header row + expanded workspace folders. */
-function CategorySection({ category, current, now, t, dragIndicator, onDragOverRow, onDragLeaveRow, onDropRow, onDragStartCategory, onDragStartWorkspace, onToggleCategory, onToggleWorkspace, onNewSession, onOpen, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onFork, onGroupRename, onGroupDelete, onMoveOut, canMoveOut }: {
+function CategorySection({ category, current, now, t, dragIndicator, onDragOverRow, onDragLeaveRow, onDropRow, onDragStartCategory, onDragStartWorkspace, onToggleCategory, onToggleWorkspace, onNewSession, onOpen, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onFork, onGroupRename, onGroupDelete, onMoveOut, canMoveOut, onOpenInFolder }: {
   category: CategoryNode
   current: SessionId | undefined
   now: number
@@ -1171,6 +1214,8 @@ function CategorySection({ category, current, now, t, dragIndicator, onDragOverR
   onGroupDelete: () => void
   onMoveOut: (workspaceId: WorkspaceId) => void
   canMoveOut: (workspaceId: WorkspaceId) => boolean
+  /** Absent when the host resolved no folder application. */
+  onOpenInFolder?: ((workspaceId: WorkspaceId) => void) | undefined
 }) {
   const categoryLine = dragIndicator?.mode === 'line' && dragIndicator.row.kind === 'category' && dragIndicator.row.key === category.key
     ? (dragIndicator.before ? 'before' : 'after')
@@ -1204,6 +1249,9 @@ function CategorySection({ category, current, now, t, dragIndicator, onDragOverR
                 onDelete={() => { onDeleteRequest(workspace.workspaceId, workspace.label) }}
                 canMoveOut={canMoveOut(workspace.workspaceId)}
                 onMoveOut={() => { onMoveOut(workspace.workspaceId) }}
+                {...(onOpenInFolder !== undefined
+                  ? { onOpenInFolder: () => { onOpenInFolder(workspace.workspaceId) } }
+                  : {})}
                 dropActive={false}
                 {...(dragIndicator?.mode === 'line' && dragIndicator.row.kind === 'workspace' && dragIndicator.row.key === workspace.workspaceId
                   ? { insertLine: dragIndicator.before ? 'before' : 'after' }
@@ -1243,7 +1291,7 @@ function CategorySection({ category, current, now, t, dragIndicator, onDragOverR
  *   last row);
  * - an empty top level shows a standalone line under the last group folder.
  */
-function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, topLevelRef, onDragOverRow, onDragOverTopLevelArea, onDragLeaveRow, onDropRow, onDragStartWorkspace, onToggleWorkspace, onNewSession, onOpen, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onFork }: {
+function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, topLevelRef, onDragOverRow, onDragOverTopLevelArea, onDragLeaveRow, onDropRow, onDragStartWorkspace, onToggleWorkspace, onNewSession, onOpen, onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onFork, onOpenInFolder }: {
   topLevel: readonly WorkspaceGroupNode[]
   current: SessionId | undefined
   now: number
@@ -1265,6 +1313,8 @@ function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, t
   onSessionRename: (sessionId: SessionId, currentTitle: string) => void
   onSessionArchive: (sessionId: SessionId) => void
   onFork: (sessionId: SessionId) => void
+  /** Absent when the host resolved no folder application. */
+  onOpenInFolder?: ((workspaceId: WorkspaceId) => void) | undefined
 }) {
   const emptyLineActive = dragIndicator?.mode === 'line' && dragIndicator.row.kind === 'topLevel' && dragIndicator.row.key === topLevelRef.key
   return (
@@ -1297,6 +1347,9 @@ function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, t
             onNewSession={() => { onNewSession(workspace.workspaceId) }}
             onRename={() => { onRenameRequest(workspace.workspaceId, workspace.label) }}
             onDelete={() => { onDeleteRequest(workspace.workspaceId, workspace.label) }}
+            {...(onOpenInFolder !== undefined
+              ? { onOpenInFolder: () => { onOpenInFolder(workspace.workspaceId) } }
+              : {})}
             {...(dragIndicator?.mode === 'line' && dragIndicator.row.kind === 'topLevel' && dragIndicator.row.key === workspace.workspaceId
               ? { insertLine: dragIndicator.before ? 'before' : 'after' }
               : {})}

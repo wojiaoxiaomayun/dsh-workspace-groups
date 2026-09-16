@@ -59,6 +59,8 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
   内容摘要，防抖 250ms
 - **工作区/会话操作不退化**：Add Workspace、项目重命名/删除、新建/打开/重命名/
   派生/归档会话
+- **在文件夹中打开**：项目行菜单在该 host 解析出系统文件管理器时多一项
+  「在文件夹中打开」（复用官方 open-in-app 路由，插件自身不加 host 路由）
 
 ### 持久化与零侵入
 - 所有手动操作（分组、归类、排序、改名、隐藏）写入插件自有 overlay
@@ -205,6 +207,21 @@ categories:
 | 顶层排序 | 拖动顶层项目行到另一顶层行：**上半 = 插到它前、下半 = 插到它后**；顺序持久化 `workspaceOrder["__topLevel__"]` |
 | 移出分组 | 拖到**顶层区域任意位置**（用插入横线指示落点——拖到顶层行前/后、最后一行下方追加、顶层为空时最后分组行下方独立横线），或项目行菜单「移出分组」（强制移到顶层） |
 | 分组排序 | 拖动分组行到另一分组行：**上半 = 移到它前、下半 = 移到它后**（指示线显示落点；拖动时所有分组收起、dragend 恢复） |
+| 在文件夹中打开 | 项目行菜单「在文件夹中打开」——在系统文件管理器中打开该项目目录（非项目行自身的能力，见下） |
+
+### 在文件夹中打开（复用官方 open-in-app）
+
+项目行菜单的「在文件夹中打开」**不自带任何启动逻辑**：它复用官方
+`@deepseek-ai/dsh-host-open-in-app` 已解析好的能力——`GET /open-in-app/apps`
+读回该 host 已验证可启动的应用，插件从中取本平台的文件管理器
+（Windows `explorer` / macOS `finder` / Linux `filemanager`），再把项目目录
+`POST /open-in-app/open` 交给其**已验证的启动器**。
+
+- 该 host 半未解析出任何文件管理器（例如 SSH 启动的远端部署）时，
+  **菜单里不会出现这一项**，而不是点了才报错；同样地，项目目录不存在的项目
+  由 host 返回 404，插件以顶部横幅提示「打开文件夹失败」。
+- 因此插件自身的 host 半**零改动**：不加路由、不 spawn 进程，权限与
+  Host/Origin 校验仍由官方那三条路由统一承担。
 
 ## 收录标签（topics）
 
@@ -259,6 +276,7 @@ src/
     tree.ts             # 三层树派生 + 树形搜索派生
     GroupsBrowser.tsx   # 浏览区域组件（分组弹窗 + 拖拽归类/排序 + 插入指示线）
     rows.tsx            # 分类/项目/会话/搜索结果行（拖拽源/目标）
+    open-folder.ts      # 「在文件夹中打开」传输层（官方 open-in-app 路由客户端）
     locales.ts          # 中英文案
     styles.css          # 内联样式
 tests/
@@ -266,6 +284,8 @@ tests/
   manual.test.ts        # overlay 校验 + 文件原子往返
   tree.test.ts          # 树派生渲染契约（手动分组空渲染/覆盖优先）
   store.test.ts         # 展开状态语义（折叠写 false 不删 key）
+  quick.test.ts         # 快速切换面板数据整形（运行中优先/搜索排序）
+  open-folder.test.ts   # open-in-app 传输层（文件管理器挑选 + 读取/POST 契约）
 scripts/
   verify-groups.mjs     # 真机 CDP 验证（自启 headless Chrome，自动恢复现场）
 ```
@@ -293,7 +313,10 @@ scripts/
   最后一行下方追加、顶层为空时独立横线；**顶层项目可排序**，顺序持久化
   `workspaceOrder["__topLevel__"]`；并修复 host 校验拒绝 `__topLevel__` 与
   「拖到两行之间却落在上一行上面」的落点定位 bug；现场恢复）。
-- 单测 66 用例全绿（vitest：`core` / `manual` / `tree` / `store`）。
+- v0.8：项目行新增**「在文件夹中打开」**，复用官方 open-in-app 的 host 路由
+  （按平台挑文件管理器；host 未解析出时菜单不出现该项；启动失败以顶部横幅提示）。
+- 单测 93 用例全绿（vitest：`core` / `manual` / `tree` / `store` / `quick` /
+  `open-folder`）。
 - 可复跑的自动化真机验证：`node scripts/verify-groups.mjs`（需 host 已重启）。
 
 ## License

@@ -19,6 +19,7 @@ import {
   IconFolderOpenOutline16,
   IconPlusOutline16,
   IconProjectAddOutline16,
+  IconRightUpOutline16,
   IconTriangleRightFill14,
   IconTrashOutline16,
   Menu,
@@ -164,7 +165,7 @@ export function CategoryRow({ node, t, onToggle, onRename, onDelete, dropActive 
 }
 
 /** One workspace folder row inside a category: draggable source + drop target. */
-export function WorkspaceRow({ node, t, onToggle, onNewSession, onRename, onDelete, canMoveOut = false, onMoveOut, flat = false, dropActive = false, insertLine, onRowDragOver, onRowDragLeave, onRowDrop, onDragStartExtra }: {
+export function WorkspaceRow({ node, t, onToggle, onNewSession, onRename, onDelete, canMoveOut = false, onMoveOut, onOpenInFolder, flat = false, dropActive = false, insertLine, onRowDragOver, onRowDragLeave, onRowDrop, onDragStartExtra }: {
   node: WorkspaceGroupNode
   t: T
   onToggle: () => void
@@ -174,6 +175,12 @@ export function WorkspaceRow({ node, t, onToggle, onNewSession, onRename, onDele
   /** Project currently sits inside a group — offer "move out of group". */
   canMoveOut?: boolean
   onMoveOut?: () => void
+  /**
+   * Open the project directory in the host's file manager. Omitted when the
+   * host resolved no folder application (no capability, or a remote launch),
+   * which keeps the entry out of the menu entirely.
+   */
+  onOpenInFolder?: () => void
   /** Render as a top-level row (no folder indentation). */
   flat?: boolean
   /** Extra dragstart hook (e.g. collapse all expanded projects while dragging). */
@@ -181,8 +188,11 @@ export function WorkspaceRow({ node, t, onToggle, onNewSession, onRename, onDele
 } & RowDropProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const menuItems = [
+    ...(onOpenInFolder !== undefined
+      ? [{ id: 'openInFolder', label: t('workspace.openInFolder'), icon: <IconFolderOpenOutline16 size={16} /> }]
+      : []),
     ...(canMoveOut && onMoveOut !== undefined
-      ? [{ id: 'moveOut', label: t('workspace.moveOutOfGroup'), icon: <IconFolderOpenOutline16 size={16} /> }]
+      ? [{ id: 'moveOut', label: t('workspace.moveOutOfGroup'), icon: <IconRightUpOutline16 size={16} /> }]
       : []),
     { id: 'rename', label: t('workspace.rename'), icon: <IconEditOutline16 /> },
     { id: 'delete', label: t('workspace.delete'), icon: <IconTrashOutline16 />, danger: true },
@@ -221,6 +231,7 @@ export function WorkspaceRow({ node, t, onToggle, onNewSession, onRename, onDele
           items={menuItems}
           onSelect={(id) => {
             setMenuOpen(false)
+            if (id === 'openInFolder') onOpenInFolder?.()
             if (id === 'moveOut') onMoveOut?.()
             if (id === 'rename') onRename()
             if (id === 'delete') onDelete()

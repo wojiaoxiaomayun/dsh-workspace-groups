@@ -69,6 +69,9 @@
   session), matched rows highlighted with a content snippet, 250ms debounce
 - **No regression on workspace/session actions**: Add Workspace, project rename/delete,
   session new/open/rename/fork/archive
+- **Open in folder**: the project row menu gains an "Open in folder" entry whenever the
+  host resolved a system file manager (reusing the official open-in-app routes — this
+  plugin adds no host route of its own)
 
 ### Persistence & zero intrusion
 - Every manual action (groups, grouping, ordering, rename, hide) is written to the plugin's own
@@ -225,6 +228,23 @@ UI operations**, at `$DSH_HOME/workspace-groups.manual.json` (e.g. `~/.dsh/works
 | Reorder top-level projects | drag a top-level row onto another top-level row: **top half = insert before, bottom half = insert after**; order persists under `workspaceOrder["__topLevel__"]` |
 | Move out of a group | drop anywhere on the **top-level area** (an insertion line shows the spot — reorder before/after a top-level row, or append below the last row; when the top level is empty a line shows under the last group), or the project row's "移出分组" menu (forced top-level) |
 | Reorder groups | drag a group row onto another group row: **top half = move before, bottom half = move after** (indicator shows the spot; all groups fold while dragging, restored on dragend) |
+| Open in folder | the project row's "在文件夹中打开" / "Open in folder" menu entry — opens the project directory in the host's file manager (see below) |
+
+### Open in folder (reuses the official open-in-app)
+
+The project row's "Open in folder" entry carries **no launching logic of its own**: it
+reuses what the official `@deepseek-ai/dsh-host-open-in-app` already resolved —
+`GET /open-in-app/apps` reads back the applications that host verified as launchable,
+the plugin picks this platform's file manager from them
+(Windows `explorer` / macOS `finder` / Linux `filemanager`), and POSTs the project
+directory to `POST /open-in-app/open` for its **verified launcher** to handle.
+
+- When that host half resolved no file manager (e.g. a remote SSH deployment),
+  **the entry is simply absent** rather than failing on click; a project whose
+  directory no longer exists is refused by the host with 404 and surfaces as a
+  transient "could not open the folder" banner.
+- This plugin's own host half is therefore **unchanged**: no new route, no process
+  spawn — permissions and the Host/Origin fence stay with those three official routes.
 
 ## Topics
 
@@ -281,6 +301,7 @@ src/
     tree.ts             # three-level tree derivation + tree search derivation
     GroupsBrowser.tsx   # browser region component (group dialogs + drag grouping/ordering + insertion indicator)
     rows.tsx            # category/project/session/search-result rows (drag sources/targets)
+    open-folder.ts      # "open in folder" transport (client of the official open-in-app routes)
     locales.ts          # zh/en copy
     styles.css          # inline styles
 tests/
@@ -288,6 +309,8 @@ tests/
   manual.test.ts        # overlay validation + atomic file round-trip
   tree.test.ts          # tree derivation rendering contract (manual group empty render / override priority)
   store.test.ts         # expansion semantics (collapse writes false, never deletes the key)
+  quick.test.ts         # quick-panel data shaping (running first / workspace search ranking)
+  open-folder.test.ts   # open-in-app transport (file-manager pick + read/POST contract)
 scripts/
   verify-groups.mjs     # real-browser CDP verification (self-spawns headless Chrome, auto-restores the scene)
 ```
@@ -324,7 +347,10 @@ scripts/
   reorderable** with their order persisted under `workspaceOrder["__topLevel__"]`; also
   fixed a host validation bug that rejected `__topLevel__` and a drop-positioning bug where
   dropping between two top-level rows landed above the first; scene restored).
-- 66 unit tests green (vitest: `core` / `manual` / `tree` / `store`).
+- v0.8: **open in folder** on the project row, reusing the official open-in-app host routes
+  (per-platform file-manager pick, entry absent when the host resolved none, launch
+  failures surfaced as a transient banner).
+- 93 unit tests green (vitest: `core` / `manual` / `tree` / `store` / `quick` / `open-folder`).
 - Reproducible automated verification: `node scripts/verify-groups.mjs` (host restarted).
 
 ## License

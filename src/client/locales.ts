@@ -32,6 +32,8 @@ export type WorkspaceGroupsKey =
   | 'workspace.renameConfirm'
   | 'workspace.renameCancel'
   | 'workspace.moveOutOfGroup'
+  | 'workspace.openInFolder'
+  | 'workspace.openInFolderError'
   | 'group.create'
   | 'group.createTitle'
   | 'group.createPlaceholder'
@@ -111,6 +113,8 @@ export const zh: WorkspaceGroupsDict = {
   'workspace.renameConfirm': '重命名',
   'workspace.renameCancel': '取消',
   'workspace.moveOutOfGroup': '移出分组',
+  'workspace.openInFolder': '在文件夹中打开',
+  'workspace.openInFolderError': '打开文件夹失败',
   'group.create': '新建分组',
   'group.createTitle': '新建分组',
   'group.createPlaceholder': '分组名称',
@@ -189,6 +193,8 @@ export const en: WorkspaceGroupsDict = {
   'workspace.renameConfirm': 'Rename',
   'workspace.renameCancel': 'Cancel',
   'workspace.moveOutOfGroup': 'Move out of group',
+  'workspace.openInFolder': 'Open in folder',
+  'workspace.openInFolderError': 'Could not open the folder',
   'group.create': 'New group',
   'group.createTitle': 'New group',
   'group.createPlaceholder': 'Group name',
