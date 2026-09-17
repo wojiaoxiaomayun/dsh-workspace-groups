@@ -29,7 +29,7 @@ import {
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import type { SessionListState, SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import type { SessionPendingInteractionSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import {
   displayCategoryKeys,
   moveAfter,
@@ -40,7 +40,7 @@ import {
 } from '../core/matcher.ts'
 import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type ManualGroups } from '../core/types.ts'
 import type { GroupsBrowserProps } from './contract.ts'
-import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
+import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, currentSessionId, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
 import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, WorkspaceRow } from './rows.tsx'
 import { fetchOpenInApps, folderAppId, openPathInApp } from './open-folder.ts'
 import { QuickPanel } from './QuickPanel.tsx'
@@ -154,7 +154,7 @@ export function GroupsBrowser({
   expandSidebar,
   useSessions,
   useWorkspaces,
-  useSessionPendingInteraction,
+  useSessionStatus,
   useStore,
   actions,
   startSession,
@@ -222,8 +222,10 @@ export function GroupsBrowser({
   const workspaceExpansion = useStore(s => s.workspaceExpansion)
 
   const list = useSessions(s => s)
-  const pendingInteractions = useSessionPendingInteraction(s => s)
-  const current = list.current
+  const statuses = useSessionStatus(s => s)
+  // 0.1.6: the selected Session is the one retained through `mainView`, not a
+  // `list.current` field (the list snapshot carries catalog facts only).
+  const current = currentSessionId(list)
   const currentWorkspaceKey = current === undefined
     ? undefined
     : (workspaces.find(w => w.sessionIds.includes(current as SessionId))?.workspaceId as string | undefined)
@@ -313,16 +315,16 @@ export function GroupsBrowser({
     () => deriveGroups(list, workspaces, archivedSessionIds, config, {
       expandedCategories,
       expandedWorkspaces,
-    }, manual, pendingInteractions),
-    [list, workspaces, archivedSessionIds, config, manual, pendingInteractions, expandedCategories, expandedWorkspaces],
+    }, manual, statuses),
+    [list, workspaces, archivedSessionIds, config, manual, statuses, expandedCategories, expandedWorkspaces],
   )
   // Top-level (ungrouped) workspace rows, rendered after the group folders.
   const topLevel = useMemo(
     () => deriveTopLevel(list, workspaces, archivedSessionIds, config, {
       expandedCategories,
       expandedWorkspaces,
-    }, manual, pendingInteractions),
-    [list, workspaces, archivedSessionIds, config, manual, pendingInteractions, expandedCategories, expandedWorkspaces],
+    }, manual, statuses),
+    [list, workspaces, archivedSessionIds, config, manual, statuses, expandedCategories, expandedWorkspaces],
   )
   // Quick panel (Ctrl+R): category label per grouped workspace id (the tree
   // derivation already resolved grouping; top-level workspaces stay absent).
@@ -915,7 +917,7 @@ export function GroupsBrowser({
             workspaces={workspaces}
             config={config}
             archivedSessionIds={archivedSessionIds}
-            pendingInteractions={pendingInteractions}
+            statuses={statuses}
             query={normalizedQuery}
             remote={remoteSearch}
             resultLimit={searchResultLimit}
@@ -1166,6 +1168,7 @@ export function GroupsBrowser({
           workspaces={workspaces}
           archivedSessionIds={archivedSessionIds}
           categoryByWorkspace={categoryByWorkspace}
+          current={current}
           startSession={startSession}
           openSession={open}
           now={now}
@@ -1382,12 +1385,12 @@ function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, t
  * 分类文件夹 → 项目文件夹 → 命中会话行. Reuses the same row components as
  * the idle tree, so search keeps the same folder hierarchy the user is used to.
  */
-function SearchBody({ list, workspaces, config, archivedSessionIds, pendingInteractions, query, remote, resultLimit, current, now, open, manual, t }: {
+function SearchBody({ list, workspaces, config, archivedSessionIds, statuses, query, remote, resultLimit, current, now, open, manual, t }: {
   list: SessionListState
   workspaces: readonly WorkspaceView[]
   config: GroupsConfig
   archivedSessionIds: readonly SessionId[]
-  pendingInteractions: SessionPendingInteractionSnapshot
+  statuses: SessionStatusSnapshot
   query: string
   remote: RemoteSearchState
   resultLimit: number
@@ -1403,8 +1406,8 @@ function SearchBody({ list, workspaces, config, archivedSessionIds, pendingInter
     [list, workspaces, config, query, archivedSessionIds, currentRemote, resultLimit],
   )
   const searchTree = useMemo(
-    () => deriveSearchGroups(list, workspaces, config, matches.matchedIds, archivedSessionIds, manual, matches.snippetsBySession, pendingInteractions),
-    [list, workspaces, config, matches, archivedSessionIds, manual, pendingInteractions],
+    () => deriveSearchGroups(list, workspaces, config, matches.matchedIds, archivedSessionIds, manual, matches.snippetsBySession, statuses),
+    [list, workspaces, config, matches, archivedSessionIds, manual, statuses],
   )
   const groups = searchTree.categories
   const searchTopLevel = searchTree.topLevel

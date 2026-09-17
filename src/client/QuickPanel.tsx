@@ -48,6 +48,8 @@ export type QuickPanelProps = {
   archivedSessionIds: readonly SessionId[]
   /** Category label per grouped workspace id (badge column; top-level absent). */
   categoryByWorkspace: ReadonlyMap<string, string>
+  /** The Session the Conversation currently shows (mainView retention), if any. */
+  current: SessionId | undefined
   /** Start a New Session in a workspace (injected share verb). */
   startSession: (workspaceId?: WorkspaceId) => void
   /** Open a real Session (injected share verb). */
@@ -76,6 +78,7 @@ export function QuickPanel({
   workspaces,
   archivedSessionIds,
   categoryByWorkspace,
+  current: currentSessionId,
   startSession,
   openSession,
   now,
@@ -97,9 +100,8 @@ export function QuickPanel({
   )
 
   // Where the user is right now: the open session and its owning workspace.
-  // Both may be absent (`list.current` cleared, or a session no listed
+  // Both may be absent (no mainView retention, or a session no listed
   // workspace holds) — the current-row marker simply never renders then.
-  const currentSessionId = list.current
   const currentWorkspaceId = useMemo(
     () => activeWorkspaceId(workspaces, currentSessionId),
     [workspaces, currentSessionId],

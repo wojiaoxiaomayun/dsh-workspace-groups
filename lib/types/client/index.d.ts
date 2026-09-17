@@ -11,14 +11,14 @@
  * - This entry deliberately declares NO child slots: the official entry
  *   already declared `sidebar.workspaces.directoryFlow` (a second declaration
  *   of an occupied child key throws). Add Workspace is therefore self-
- *   contained — the Host-native directory picker + `workspaces.create()`, no
+ *   contained — the shared navigation service + `workspaces.create()`, no
  *   hole.
  *
- * 0.1.2 适配：`@deepseek-ai/dsh-client-runtime` 不再存在（平台模块表基线改为
- * `PLATFORM_MODULES`），sessions/workspaces 收敛为纯 Controller 服务，
- * `workspaces.startSession/pickDirectory` 与 `connection.hostDescription`
- * 被移除。New Session 与目录选取在此本地组装（与官方 ui-workspace 的
- * navigation.ts 同一语义），跨插件协作只走 cordis 服务 / slots。
+ * 0.1.6 适配：导航（选中会话 / New Session / fork / archive / 目录选择）从
+ * `ctx.sessions` 抽到 ui-workspace 提供的 `ctx.uiWorkspace` 服务
+ * （`ISessions` 现在只有目录 / retain / search 能力，选中由 `mainView` 保留位
+ * 表达）。本插件不再自建 connectWorkspace/recentWorkspace 语义，全部委托给该
+ * 服务，只保留改名、删除、排序、搜索等数据动作。
  */
 import type { Context } from '@deepseek-ai/cordis';
 import type { SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
@@ -34,7 +34,10 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
         useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>;
     }
 }
-/** Required services (cordis fiber inject; 0.1.2 service roster). */
+/**
+ * Required services (cordis fiber inject; 0.1.6 service roster). `uiWorkspace`
+ * is the shipped navigation face this browser delegates selection to.
+ */
 export declare const inject: string[];
 /**
  * Register the grouped browser once the sidebar slot declaration is on the

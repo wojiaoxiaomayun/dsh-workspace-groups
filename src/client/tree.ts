@@ -10,9 +10,10 @@ import type {
   SessionSummary,
 } from '@deepseek-ai/dsh-api-session-controller/client'
 import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-// Type-only: the pending-interaction base contract (0.1.2 把 pendingInteraction
-// 从 SessionSummary 挪到了 ui-session 的独立快照).
-import type { SessionPendingInteractionBase } from '@deepseek-ai/dsh-client-ui-session/client'
+// Type-only: the unified UI status snapshot. 0.1.6 把 running / pendingInteraction /
+// 未读完成提示收敛为 ui-session 的 SessionStatusSnapshot；SessionSummary.completed
+// 与 SessionListState.current 同时移除，当前会话改由 `mainView` 保留位推导。
+import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { indexSubagentDescendants, type SubagentDescendantSummary } from './subagent-lineage.ts'
 import { effectiveCategories, orderedWorkspaceIds, resolveCategory } from '../core/matcher.ts'
@@ -21,8 +22,21 @@ import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type Manua
 /** Pending interaction kinds with dedicated Workspace-row presentation. */
 export type SessionPendingInteractionStatus = 'approval' | 'plan-review' | 'question'
 
-/** Current effective pending interaction by Session (ui-session snapshot). */
-type PendingInteractions = ReadonlyMap<SessionId, SessionPendingInteractionBase>
+/** Current unified UI status by Session (ui-session snapshot). */
+type SessionStatuses = SessionStatusSnapshot
+
+/**
+ * The Session the Conversation is currently showing.
+ *
+ * 0.1.6 removed `SessionListState.current`: selection is expressed as the
+ * Session retained through the `mainView` reference source (the ui-workspace
+ * navigation holds exactly one). Same read the official browser performs.
+ * @param list - sessions list snapshot.
+ * @returns the retained Session id, or undefined while no Session is selected.
+ */
+export function currentSessionId(list: SessionListState): SessionId | undefined {
+  return Object.values(list.byId).find(session => (session.retainedBy?.mainView ?? 0) > 0)?.id
+}
 
 /** Keep navigation presentation independent from domain-owned interaction objects. */
 function visiblePendingKind(kind: string | undefined): SessionPendingInteractionStatus | undefined {
@@ -118,16 +132,17 @@ function sessionTitle(session: SessionSummary): string {
 function sessionNode(
   s: SessionSummary,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
-  pendingInteractions: PendingInteractions,
+  statuses: SessionStatuses,
 ): SessionNode {
-  const pending = visiblePendingKind(pendingInteractions.get(s.id)?.kind)
+  const status = statuses.get(s.id)
+  const pending = visiblePendingKind(status?.pendingInteraction?.kind)
   return {
     id: s.id,
     title: sessionTitle(s),
     blank: s.blank,
-    running: s.running,
+    running: status?.running ?? s.running,
     runningSubagentCount: descendants.get(s.id)?.runningCount ?? 0,
-    completed: s.completed === true,
+    completed: status?.completionUnread === true,
     updatedAt: s.updatedAt,
     ...(pending === undefined ? {} : { pendingInteraction: pending }),
   }
@@ -139,14 +154,15 @@ function workspaceSessions(
   workspace: WorkspaceView,
   archived: ReadonlySet<SessionId>,
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
-  pendingInteractions: PendingInteractions,
+  statuses: SessionStatuses,
+  current: SessionId | undefined,
 ): SessionNode[] {
   const nodes: SessionNode[] = []
   for (const id of workspace.sessionIds) {
     const summary = list.byId[id]
     if (summary === undefined) continue // account may lead the list pull; appears when the summary lands
-    if (!sessionVisible(summary, list.current, archived)) continue
-    nodes.push(sessionNode(summary, descendants, pendingInteractions))
+    if (!sessionVisible(summary, current, archived)) continue
+    nodes.push(sessionNode(summary, descendants, statuses))
   }
   return nodes
 }
@@ -160,8 +176,8 @@ function workspaceSessions(
  * @param view - local expansion arrays.
  * @param manual - runtime overlay (manual groups + overrides). A workspace's
  * manual override wins over rule classification; removing it reverts to rules.
- * @param pendingInteractions - ui-session pending interaction snapshot (drives
- * the row warning dot); defaults to none (tests).
+ * @param statuses - unified UI status by Session (drives the running / warning
+ * / unread-completion row indicators); defaults to none (tests).
  * @returns category sections in render order (rule categories first, then
  * manual-only ones, uncategorized last). Manual groups render even while
  * empty; empty rule buckets stay hidden.
@@ -173,12 +189,13 @@ export function deriveGroups(
   config: GroupsConfig,
   view: GroupsTreeView,
   manual: ManualGroups,
-  pendingInteractions: PendingInteractions = new Map(),
+  statuses: SessionStatuses = new Map(),
 ): CategoryNode[] {
   const archived = new Set(archivedSessionIds)
   const expandedCategories = new Set(view.expandedCategories)
   const expandedWorkspaces = new Set(view.expandedWorkspaces)
   const descendants = indexSubagentDescendants(list.byId)
+  const current = currentSessionId(list)
 
   // Bucket workspaces by display key. Seed with every effective category so
   // manual groups render while empty. Top-level (ungrouped) workspaces are
@@ -195,9 +212,9 @@ export function deriveGroups(
   }
 
   const manualCategories = new Set(manual.categories)
-  const currentWorkspaceId = list.current === undefined
+  const currentWorkspaceId = current === undefined
     ? undefined
-    : workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId
+    : workspaces.find(w => w.sessionIds.includes(current))?.workspaceId
 
   const nodes: CategoryNode[] = []
   // Effective categories in display order (categoryOrder applied).
@@ -212,7 +229,7 @@ export function deriveGroups(
     for (const workspaceId of ordered) {
       const workspace = bucket.find(w => w.workspaceId === workspaceId)
       if (workspace === undefined) continue
-      const sessions = workspaceSessions(list, workspace, archived, descendants, pendingInteractions)
+      const sessions = workspaceSessions(list, workspace, archived, descendants, statuses, current)
       const wsExpanded = expandedWorkspaces.has(workspace.workspaceId as string)
       const wsContainsCurrent = workspace.workspaceId === currentWorkspaceId
       if (wsContainsCurrent) containsCurrent = true
@@ -252,14 +269,15 @@ export function deriveTopLevel(
   config: GroupsConfig,
   view: GroupsTreeView,
   manual: ManualGroups,
-  pendingInteractions: PendingInteractions = new Map(),
+  statuses: SessionStatuses = new Map(),
 ): WorkspaceGroupNode[] {
   const archived = new Set(archivedSessionIds)
   const expandedWorkspaces = new Set(view.expandedWorkspaces)
   const descendants = indexSubagentDescendants(list.byId)
-  const currentWorkspaceId = list.current === undefined
+  const current = currentSessionId(list)
+  const currentWorkspaceId = current === undefined
     ? undefined
-    : workspaces.find(w => w.sessionIds.includes(list.current as SessionId))?.workspaceId
+    : workspaces.find(w => w.sessionIds.includes(current))?.workspaceId
 
   const topLevelIds = workspaces
     .filter(w => resolveCategory(config, manual, w.workspaceId, w.path, w.title) === undefined)
@@ -270,7 +288,7 @@ export function deriveTopLevel(
   for (const workspaceId of ordered) {
     const workspace = workspaces.find(w => w.workspaceId === workspaceId)
     if (workspace === undefined) continue
-    const sessions = workspaceSessions(list, workspace, archived, descendants, pendingInteractions)
+    const sessions = workspaceSessions(list, workspace, archived, descendants, statuses, current)
     const wsExpanded = expandedWorkspaces.has(workspaceId)
     nodes.push({
       workspaceId: workspace.workspaceId,
@@ -319,6 +337,7 @@ export function deriveSearchMatches(
   if (q === '') return { matchedIds: new Set(), snippetsBySession: new Map(), hasMore: false }
   const archived = new Set(archivedSessionIds)
   const descendants = indexSubagentDescendants(list.byId)
+  const current = currentSessionId(list)
 
   const workspaceBySession = new Map<SessionId, WorkspaceView>()
   for (const workspace of workspaces) {
@@ -332,7 +351,7 @@ export function deriveSearchMatches(
   const local: SessionSummary[] = []
   for (const id of list.ids) {
     const summary = list.byId[id]
-    if (summary === undefined || summary.blank || !sessionVisible(summary, list.current, archived)) continue
+    if (summary === undefined || summary.blank || !sessionVisible(summary, current, archived)) continue
     if (
       sessionTitle(summary).toLowerCase().includes(q)
       || labelOf(summary).toLowerCase().includes(q)
@@ -352,7 +371,7 @@ export function deriveSearchMatches(
   for (const summary of local) include(summary)
   for (const item of content.items) {
     const summary = list.byId[item.sessionId]
-    if (summary !== undefined && !summary.blank && sessionVisible(summary, list.current, archived)) include(summary)
+    if (summary !== undefined && !summary.blank && sessionVisible(summary, current, archived)) include(summary)
   }
 
   const snippets = new Map<SessionId, string>()
@@ -390,8 +409,8 @@ export interface SearchTree {
  * @param archivedSessionIds - registry-global archive set.
  * @param manual - runtime overlay (manual groups + overrides).
  * @param snippetsBySession - optional content-match snippets keyed by session id.
- * @param pendingInteractions - ui-session pending interaction snapshot (drives
- * the row warning dot); defaults to none (tests).
+ * @param statuses - unified UI status by Session (drives the running / warning
+ * / unread-completion row indicators); defaults to none (tests).
  * @returns group folders in render order plus top-level matched workspaces,
  * pruned to matched branches only.
  */
@@ -403,10 +422,11 @@ export function deriveSearchGroups(
   archivedSessionIds: readonly SessionId[],
   manual: ManualGroups,
   snippetsBySession?: ReadonlyMap<SessionId, string>,
-  pendingInteractions: PendingInteractions = new Map(),
+  statuses: SessionStatuses = new Map(),
 ): SearchTree {
   const archived = new Set(archivedSessionIds)
   const descendants = indexSubagentDescendants(list.byId)
+  const current = currentSessionId(list)
 
   const byCategory = new Map<string, WorkspaceGroupNode[]>()
   for (const key of effectiveCategories(config, manual).map(e => e.key)) byCategory.set(key, [])
@@ -418,8 +438,8 @@ export function deriveSearchGroups(
     for (const id of workspace.sessionIds) {
       const summary = list.byId[id]
       if (summary === undefined || !matchedIds.has(id)) continue
-      if (!sessionVisible(summary, list.current, archived)) continue
-      const node = sessionNode(summary, descendants, pendingInteractions)
+      if (!sessionVisible(summary, current, archived)) continue
+      const node = sessionNode(summary, descendants, statuses)
       const snippet = snippetsBySession?.get(id)
       nodes.push({
         ...node,

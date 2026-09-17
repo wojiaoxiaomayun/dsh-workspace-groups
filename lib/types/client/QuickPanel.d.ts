@@ -18,6 +18,8 @@ export type QuickPanelProps = {
     archivedSessionIds: readonly SessionId[];
     /** Category label per grouped workspace id (badge column; top-level absent). */
     categoryByWorkspace: ReadonlyMap<string, string>;
+    /** The Session the Conversation currently shows (mainView retention), if any. */
+    current: SessionId | undefined;
     /** Start a New Session in a workspace (injected share verb). */
     startSession: (workspaceId?: WorkspaceId) => void;
     /** Open a real Session (injected share verb). */
@@ -32,5 +34,5 @@ export type QuickPanelProps = {
  * @param props - hooks snapshots + injected verbs.
  * @returns the panel element tree.
  */
-export declare function QuickPanel({ onClose, list, workspaces, archivedSessionIds, categoryByWorkspace, startSession, openSession, now, t, }: QuickPanelProps): import("react").ReactPortal;
+export declare function QuickPanel({ onClose, list, workspaces, archivedSessionIds, categoryByWorkspace, current: currentSessionId, startSession, openSession, now, t, }: QuickPanelProps): import("react").ReactPortal;
 export {};

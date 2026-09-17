@@ -104,6 +104,10 @@
 
 > Prerequisite: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > installed (`dsh` available) with a target profile initialized (e.g. the built-in `web`).
+>
+> Version pairing: `0.2.x` of this plugin targets the `dsh 0.1.6-alpha.2` client
+> contract (`useSessionStatus` / `ctx.uiWorkspace` / the `mainView` selection
+> model); on a `0.1.2-rc.1`-era `dsh`, use `0.1.2`.
 
 ```sh
 dsh plugin --profile web add @dsh-xhl/workspace-groups
@@ -111,7 +115,7 @@ dsh plugin --profile web add @dsh-xhl/workspace-groups
 
 This automatically:
 
-1. Adds `"@dsh-xhl/workspace-groups": "^0.1.0"` to `dependencies` in
+1. Adds `"@dsh-xhl/workspace-groups": "^0.2.0"` to `dependencies` in
    `~/.dsh/profiles/web/package.json`
 2. Appends `"@dsh-xhl/workspace-groups"` to `dsh.profile.bundles`
 3. Runs pnpm install and validates the bundle layer

@@ -37,7 +37,7 @@ export function runningSessions(list: SessionListState, archived: ReadonlySet<Se
  * never; a blank row only while it is the open session).
  * @param list - sessions list snapshot.
  * @param archived - registry-global archive set (archived rows never surface).
- * @param current - `list.current` (the open session; keeps its blank row visible).
+ * @param current - the selected session (`mainView` retention; keeps its blank row visible).
  * @returns summaries with running first, then recency (id as deterministic tiebreak).
  */
 export function allSessions(
@@ -135,7 +135,7 @@ export function runningCountByWorkspace(
 /**
  * The workspace that owns the currently open session.
  * @param workspaces - real workspaces in stable Host order.
- * @param currentSessionId - `list.current` (the open session); may be undefined
+ * @param currentSessionId - the selected session (`mainView` retention); may be undefined
  *   (no session open, cleared selection) or an id no listed workspace holds
  *   (e.g. an addressed subagent session).
  * @returns the workspace id, or undefined when there is no active workspace.

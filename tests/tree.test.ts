@@ -11,8 +11,10 @@
 import { describe, expect, it } from 'vitest'
 
 import type { SessionListState, SessionSummary } from '@deepseek-ai/dsh-api-session-controller/client'
+import type { SessionStatus, SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client'
-import { deriveGroups, deriveTopLevel } from '../src/client/tree.ts'
+import type { SessionId } from '@deepseek-ai/dsh-session/types'
+import { currentSessionId, deriveGroups, deriveTopLevel } from '../src/client/tree.ts'
 import type { GroupsConfig, ManualGroups } from '../src/core/types.ts'
 
 const CONFIG: GroupsConfig = {
@@ -26,28 +28,37 @@ function workspace(id: string, path: string, title: string, sessionIds: string[]
   return { workspaceId: id, path, title, createdAt: '2026-01-01T00:00:00.000Z', sessionIds } as unknown as WorkspaceView
 }
 
-function session(id: string, title: string): SessionSummary {
+function session(
+  id: string,
+  title: string,
+  opts: { blank?: boolean; mainView?: boolean } = {},
+): SessionSummary {
   return {
     id,
     origin: 'user',
-    blank: false,
+    blank: opts.blank ?? false,
     displayTitle: title,
     running: false,
-    completed: false,
     updatedAt: 1_700_000_000_000,
     cwd: '/Users/zcol/Project/x',
+    // 0.1.6 的选中态：当前会话由 `mainView` 保留位表达。
+    retainedBy: opts.mainView === true ? { mainView: 1 } : {},
   } as unknown as SessionSummary
+}
+
+/** One unified status snapshot entry (0.1.6 ui-session contract). */
+function status(entry: Partial<SessionStatus>): SessionStatus {
+  return { running: undefined, pendingInteraction: undefined, completionUnread: false, ...entry }
 }
 
 function listState(workspaces: WorkspaceView[], current?: string): SessionListState {
   const byId: Record<string, SessionSummary> = {}
   for (const ws of workspaces) {
-    for (const id of ws.sessionIds) byId[id] = session(id, `会话-${id}`)
+    for (const id of ws.sessionIds) byId[id] = session(id, `会话-${id}`, { mainView: id === current })
   }
   return {
     ids: Object.keys(byId),
     byId,
-    current,
     phase: 'ready',
     subagentsByParent: {},
   } as unknown as SessionListState
@@ -184,5 +195,55 @@ describe('deriveTopLevel', () => {
     }
     const top = deriveTopLevel(listState(ws), ws, [], CONFIG, VIEW, manual)
     expect(top.map(w => w.workspaceId)).toEqual(['ws-c', 'ws-a', 'ws-b'])
+  })
+})
+
+/**
+ * 0.1.6 sources: the selected Session is the `mainView`-retained one (no
+ * `list.current`), and running / unread-completion / pending-interaction facts
+ * arrive as one unified status snapshot instead of SessionSummary fields.
+ */
+describe('0.1.6 selection and status sources', () => {
+  const ws = [workspace('ws-a', '/tmp/a', 'A', ['s1', 's2'])]
+  const expanded = { expandedCategories: [], expandedWorkspaces: ['ws-a'] }
+  const plain: ManualGroups = { categories: [], assignments: {} }
+
+  it('resolves the selected session from mainView retention', () => {
+    expect(currentSessionId(listState(ws, 's2'))).toBe('s2')
+    expect(currentSessionId(listState(ws))).toBeUndefined()
+  })
+
+  it('keeps only the selected blank session visible', () => {
+    const list = {
+      ids: ['blank-pick', 'blank-other'],
+      byId: {
+        'blank-pick': session('blank-pick', '会话-blank-pick', { blank: true, mainView: true }),
+        'blank-other': session('blank-other', '会话-blank-other', { blank: true }),
+      },
+      phase: 'ready',
+      subagentsByParent: {},
+    } as unknown as SessionListState
+    const blankWs = [workspace('ws-a', '/tmp/a', 'A', ['blank-pick', 'blank-other'])]
+    const top = deriveTopLevel(list, blankWs, [], CONFIG, expanded, plain)
+    expect(top[0]?.sessions.map(s => s.id)).toEqual(['blank-pick'])
+  })
+
+  it('projects the unified status snapshot onto rows', () => {
+    const statuses: SessionStatusSnapshot = new Map<SessionId, SessionStatus>([
+      ['s1', status({ running: true, pendingInteraction: { key: 'k1', kind: 'approval', sessionId: 's1' as SessionId } })],
+      ['s2', status({ completionUnread: true })],
+    ])
+    const top = deriveTopLevel(listState(ws), ws, [], CONFIG, expanded, plain, statuses)
+    expect(top[0]?.sessions[0]).toMatchObject({ id: 's1', running: true, completed: false, pendingInteraction: 'approval' })
+    expect(top[0]?.sessions[1]).toMatchObject({ id: 's2', running: false, completed: true })
+    expect(top[0]?.sessions[1]?.pendingInteraction).toBeUndefined()
+  })
+
+  it('ignores a pending interaction kind with no row presentation', () => {
+    const statuses: SessionStatusSnapshot = new Map<SessionId, SessionStatus>([
+      ['s1', status({ pendingInteraction: { key: 'k1', kind: 'weather-consent', sessionId: 's1' as SessionId } })],
+    ])
+    const top = deriveTopLevel(listState(ws), ws, [], CONFIG, expanded, plain, statuses)
+    expect(top[0]?.sessions[0]?.pendingInteraction).toBeUndefined()
   })
 })

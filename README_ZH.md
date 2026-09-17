@@ -90,6 +90,10 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
 
 > 前置：已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > （`dsh` 命令可用），并已初始化好目标 profile（如内置 `web`）。
+>
+> 版本对应：本插件 `0.2.x` 起对齐 `dsh 0.1.6-alpha.2` 客户端契约
+> （`useSessionStatus` / `ctx.uiWorkspace` / `mainView` 选中模型）；
+> 运行在 `0.1.2-rc.1` 时代的 dsh 上请使用 `0.1.2`。
 
 ```sh
 dsh plugin --profile web add @dsh-xhl/workspace-groups
@@ -98,7 +102,7 @@ dsh plugin --profile web add @dsh-xhl/workspace-groups
 这会自动：
 
 1. 在 `~/.dsh/profiles/web/package.json` 的 `dependencies` 加入
-   `"@dsh-xhl/workspace-groups": "^0.1.0"`
+   `"@dsh-xhl/workspace-groups": "^0.2.0"`
 2. 在 `dsh.profile.bundles` 末尾追加 `"@dsh-xhl/workspace-groups"`
 3. 运行 pnpm 安装并校验 bundle 层
 

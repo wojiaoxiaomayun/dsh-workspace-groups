@@ -29,7 +29,6 @@ function session(
     blank: opts.blank ?? false,
     displayTitle: opts.title ?? `会话-${id}`,
     running: opts.running ?? false,
-    completed: false,
     updatedAt: opts.updatedAt ?? 1_700_000_000_000,
     ...(opts.subagent === true ? { origin: 'subagent' as const } : {}),
   } as unknown as SessionSummary
@@ -39,13 +38,12 @@ function workspace(id: string, path: string, title: string, sessionIds: string[]
   return { workspaceId: id, path, title, createdAt: '2026-01-01T00:00:00.000Z', sessionIds } as unknown as WorkspaceView
 }
 
-function listState(sessions: SessionSummary[], current?: string): SessionListState {
+function listState(sessions: SessionSummary[]): SessionListState {
   const byId: Record<string, SessionSummary> = {}
   for (const s of sessions) byId[s.id] = s
   return {
     ids: sessions.map(s => s.id),
     byId,
-    current,
     phase: 'ready',
     subagentsByParent: {},
   } as unknown as SessionListState
@@ -92,7 +90,7 @@ describe('allSessions', () => {
       session('sub', { running: true, subagent: true, updatedAt: 400 }),
       session('blank', { blank: true, updatedAt: 300 }),
       session('blank-current', { blank: true, updatedAt: 200 }),
-    ], 'blank-current')
+    ])
     const out = allSessions(list, new Set(['idle']), 'blank-current')
     expect(out.map(s => s.id)).toEqual(['blank-current'])
   })
