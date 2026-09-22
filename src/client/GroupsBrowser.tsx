@@ -17,11 +17,6 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   Button,
-  IconCloseFill14,
-  IconFolderOpenOutline16,
-  IconProjectAddOutline16,
-  IconSearchOutline16,
-  IconWarningOutline16,
   Modal,
   Toast,
   Tooltip,
@@ -42,6 +37,7 @@ import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type Manua
 import type { GroupsBrowserProps } from './contract.ts'
 import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, currentSessionId, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
 import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, WorkspaceRow } from './rows.tsx'
+import { IconCloseFill14, IconFolderOpenOutline16, IconProjectAddOutline16, IconSearchOutline16, IconWarningOutline16 } from './icons.ts'
 import { fetchOpenInApps, folderAppId, openPathInApp } from './open-folder.ts'
 import { QuickPanel } from './QuickPanel.tsx'
 import css from './styles.css?inline'

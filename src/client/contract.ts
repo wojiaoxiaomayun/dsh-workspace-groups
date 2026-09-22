@@ -5,6 +5,8 @@
  * self-contained via `pickDirectory`), and no locale-keyed naming collision.
  */
 import type {
+  HostObservable,
+  InjectFace,
   PropsLocale,
   PropsRuntime,
   PropsStore,
@@ -18,6 +20,17 @@ import type { createGroupsViewStore } from './stores.ts'
 
 /** Injected share (arrives via the register inject factory). */
 export type GroupsBrowserInjected = {
+  /**
+   * Reserved hooks compartment. `directoryFlow` reports the
+   * `sidebar.workspaces.directoryFlow` hole as occupied: the official
+   * ui-workspace entry stays registered behind this one and withdraws its
+   * "Add workspace…" affordance when the hole is empty, so this browser keeps
+   * it truthy (it drives the picker itself through `pickDirectory`).
+   */
+  hooks: {
+    /** True while the sidebar browsing region's directory-flow hole is occupied. */
+    directoryFlow: HostObservable<boolean>
+  }
   /** Start a New Session in a Workspace (reuse-or-create its blank session and open it). */
   startSession: (workspaceId?: WorkspaceId) => void
   /** Open a real Session. */
@@ -52,5 +65,5 @@ export type GroupsBrowserInjected = {
 /** Full browser props: shell owner share + viewing store + injected actions + locale seat. */
 export type GroupsBrowserProps = PropsRuntime<'sidebar.workspaces'> &
   PropsStore<ReturnType<typeof createGroupsViewStore>> &
-  GroupsBrowserInjected &
+  InjectFace<GroupsBrowserInjected> &
   PropsLocale<'workspaceGroups'>

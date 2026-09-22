@@ -9,6 +9,7 @@
  * The payload is a custom dataTransfer type so only in-plugin drags land.
  */
 import { useState, type DragEvent } from 'react'
+import { Menu, StateDot, type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives'
 import {
   IconArchiveOutline20,
   IconBranchOutline16,
@@ -22,10 +23,7 @@ import {
   IconRightUpOutline16,
   IconTriangleRightFill14,
   IconTrashOutline16,
-  Menu,
-  StateDot,
-  type StateDotState,
-} from '@deepseek-ai/dsh-client-ui-primitives'
+} from './icons.ts'
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots'
 import type { WorkspaceGroupsKey } from './locales.ts'
 import type { CategoryNode, SessionNode, WorkspaceGroupNode } from './tree.ts'

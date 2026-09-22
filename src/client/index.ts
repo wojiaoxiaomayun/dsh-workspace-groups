@@ -89,6 +89,18 @@ export function apply(ctx: Context): void {
     pickDirectory: () => ctx.uiWorkspace.pickDirectory(),
     searchSessions,
     searchResultLimit: ctx.sessions.searchResultLimit,
+    // Directory-flow hole occupancy. The official ui-workspace browser gates
+    // its "Add workspace…" affordance on the hole being occupied (the shipped
+    // picker package's client half fills it); this browser drives the picker
+    // itself through `pickDirectory`, so it must keep the hole occupied or the
+    // official entry (still live at priority 0) would silently withdraw the
+    // affordance.
+    hooks: {
+      directoryFlow: {
+        getSnapshot: () => true,
+        subscribe: () => () => {},
+      },
+    },
     // Data-only verbs stay on the controllers.
     renameSession: async (sessionId, title) => {
       const session = ctx.sessions.binding(sessionId)?.session
@@ -110,6 +122,13 @@ export function apply(ctx: Context): void {
   // priority: -1 — lower than the official browser's default 0, so the
   // single-slot shadow rule elects this entry. No children declaration: the
   // official entry already owns `sidebar.workspaces.directoryFlow`.
+  //
+  // The official WorkspaceBrowser entry is NEVER disposed — shadowing only
+  // changes which entry renders (activation just bumps the store's mount
+  // count). Both entries live at the same cell, so if this one ever throws
+  // during render the slot core retires it for the rest of its registration's
+  // life and silently falls back to the official browser. Anything that can
+  // throw belongs outside the hot path.
   ctx.slots.inject('sidebar.workspaces', () => ctx.slots.register(
     {
       name: 'sidebar.workspaces',

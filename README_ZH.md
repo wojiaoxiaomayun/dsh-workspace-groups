@@ -92,8 +92,13 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
 > （`dsh` 命令可用），并已初始化好目标 profile（如内置 `web`）。
 >
 > 版本对应：本插件 `0.2.x` 起对齐 `dsh 0.1.6-alpha.2` 客户端契约
-> （`useSessionStatus` / `ctx.uiWorkspace` / `mainView` 选中模型）；
-> 运行在 `0.1.2-rc.1` 时代的 dsh 上请使用 `0.1.2`。
+> （`useSessionStatus` / `ctx.uiWorkspace` / `mainView` 选中模型），并可在
+> `0.1.7-alpha.1` 上运行；运行在 `0.1.2-rc.1` 时代的 dsh 上请使用 `0.1.2`。
+>
+> `0.2.1` 说明：`dsh 0.1.7-alpha.1` 把 `dsh-client-ui-primitives` 的整套图标
+> 改了名（`IconFolderOpen16` → `IconFolderOpenRegular`，且不保留旧名别名）。
+> 现在图标统一经别名表解析并带空白占位兜底：上游再改名只会少一个图标，
+> 不会再让整块侧栏区域退位消失。
 
 ```sh
 dsh plugin --profile web add @dsh-xhl/workspace-groups
@@ -102,7 +107,7 @@ dsh plugin --profile web add @dsh-xhl/workspace-groups
 这会自动：
 
 1. 在 `~/.dsh/profiles/web/package.json` 的 `dependencies` 加入
-   `"@dsh-xhl/workspace-groups": "^0.2.0"`
+   `"@dsh-xhl/workspace-groups": "^0.2.1"`
 2. 在 `dsh.profile.bundles` 末尾追加 `"@dsh-xhl/workspace-groups"`
 3. 运行 pnpm 安装并校验 bundle 层
 
