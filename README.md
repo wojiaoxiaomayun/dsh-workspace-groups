@@ -5,7 +5,7 @@
 # @dsh-xhl/workspace-groups
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-![DSH](https://img.shields.io/badge/DSH-0.1.1--rc.2-purple.svg)
+![DSH](https://img.shields.io/badge/DSH-0.1.7--rc.2-purple.svg)
 <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-202724" alt="DeepSeek Harness plugin">
 
 > **A DeepSeek Harness (DSH) web client plugin: a complete workspace grouping manager.**
@@ -213,9 +213,13 @@
 > Prerequisite: [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > installed (`dsh` available) with a target profile initialized (e.g. the built-in `web`).
 >
-> Version pairing: `0.2.x` of this plugin targets the `dsh 0.1.6-alpha.2` client
+> Version pairing: `0.3.x` of this plugin targets the `dsh 0.1.7-rc.2` client
 > contract (`useSessionStatus` / `ctx.uiWorkspace` / the `mainView` selection
 > model); on a `0.1.2-rc.1`-era `dsh`, use `0.1.2`.
+>
+> `0.3.0` note: `dsh 0.1.7` renamed the whole `dsh-client-ui-primitives` icon set
+> from size suffixes to weight suffixes (`IconCloseFill14` → `IconCloseFillMedium` /
+> `…Regular`, no legacy aliases); every call site now uses the new names directly.
 
 ```sh
 dsh plugin --profile web add @dsh-xhl/workspace-groups
@@ -223,7 +227,7 @@ dsh plugin --profile web add @dsh-xhl/workspace-groups
 
 This automatically:
 
-1. Adds `"@dsh-xhl/workspace-groups": "^0.2.0"` to `dependencies` in
+1. Adds `"@dsh-xhl/workspace-groups": "^0.3.0"` to `dependencies` in
    `~/.dsh/profiles/web/package.json`
 2. Appends `"@dsh-xhl/workspace-groups"` to `dsh.profile.bundles`
 3. Runs pnpm install and validates the bundle layer
@@ -524,6 +528,12 @@ scripts/
   verbatim, and a legacy file's extra `sessionKey` field is ignored. `restore` also MERGES
   instead of bailing on a non-empty strip: the tab opened during startup and the stored tabs now
   both survive.
+- v0.12 (release `0.3.0`): merged the remote `0.2.1` icon-rename fix — every call site now uses
+  the `dsh 0.1.7` weight-suffixed names directly (`IconCloseFillMedium` / `…Regular`), so the
+  remote `icons.ts` alias table is no longer needed and has been deleted. The remote inject-face
+  fixes are kept: the reserved `hooks.directoryFlow` compartment (the official entry stays
+  registered behind this one and gates its own "Add workspace…" affordance on that hole) and the
+  dual map/record read of `SessionStatusSnapshot`.
 - Typecheck + build pass (including the client-bundle purity gate).
 - 179 unit tests green (vitest: `core` / `manual` / `tree` / `store` / `quick` / `tabs` /
   `tab-seat` / `host-tabs` / `branch` / `styles` / `open-folder`).

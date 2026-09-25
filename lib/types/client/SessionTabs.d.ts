@@ -4,4 +4,4 @@ import type { SessionsTabsProps } from './contract.ts';
  * @param props - tab store, catalog/status hooks, navigation, locale.
  * @returns the portal (or null until the column has mounted).
  */
-export declare function SessionTabs({ useTabs, actions, useSessions, useSessionStatus, activate, rename, t, }: SessionsTabsProps): import("react").ReactPortal | null;
+export declare function SessionTabs({ useTabs, actions, useSessions, useSessionStatus, useWorkspaces, activate, rename, t, }: SessionsTabsProps): import("react").ReactPortal | null;

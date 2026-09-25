@@ -1,44 +1,54 @@
 /**
- * The session-tab store. One handle, two registrations: the sidebar browser
- * entry owns the strip's *lifecycle* (which sessions hold a tab, in what order)
- * and the composer-footer strip entry only renders it — the persisted session
- * list is the shared memory, so both halves agree without either one holding
- * business state of its own.
+ * The session-tab store: the `defineStore` binding and nothing else.
  *
- * Placement is navigation, not data: the strip derives its active chip and its
- * display order from the open session, so nothing here mirrors selection.
+ * The action TRANSFORMS live in `tabs.ts` (pure, runtime-free), so unit tests
+ * exercise the real semantics without pulling in the store engine — this module
+ * is the only place that needs `@deepseek-ai/dsh-client-store`, and importing it
+ * from a test would drag `zustand` into the test process.
  *
- * The action implementations live in `tabs.ts` (pure, runtime-free) so unit
- * tests exercise the real semantics without a browser module loader.
+ * One handle, one scope: the tab store is seated by the `sidebar.workspaces`
+ * entry alone. The tab strip is a CHILD of that entry (rendered through a DOM
+ * portal into the conversation column), not a second slot registration, so the
+ * handle is never mounted under a second, differently-scoped slot — which the
+ * registry rejects outright ("one handle, one scope").
+ *
+ * Placement is navigation, not data: the strip derives its active chip from the
+ * open session, and arrival order is the strip's only order, so nothing here
+ * mirrors selection.
  */
 import { type EngineStoreHandle, type StoreHandle } from '@deepseek-ai/dsh-client-store';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
-import type { SessionListState } from '@deepseek-ai/dsh-api-session-controller/client';
-import { type SessionTab } from './tabs.ts';
-/** Session-tab strip state. */
-export interface SessionTabsState {
-    /** Open tabs, oldest first (display order is derived at render time). */
-    tabs: SessionTab[];
-    /** Monotonic arrival counter; a reopened session gets a fresh key. */
-    order: number;
-}
-/** Session-tab strip actions (bound by the framework, handed to both entries). */
+import { closeTabImpl, restoreTabsImpl, touchTabImpl, type SessionTab, type SessionTabsState } from './tabs.ts';
+export type { SessionTabsState };
+/**
+ * Session-tab strip actions (bound by the framework, handed to the browser).
+ *
+ * There is deliberately NO "drop tabs whose session vanished" action. An open
+ * tab is closed by the USER and by nothing else — a program that trims the strip
+ * on its own eventually eats tabs the user wanted, and the whole point of the
+ * strip is that it holds what you opened.
+ *
+ * This is also why the store needs no catalog at all: it never consults one.
+ */
 export interface SessionTabsActions {
-    /** Append the open session, or move its existing tab to the front. */
+    /** Add the open session, or leave its existing tab untouched in place. */
     touch: (sessionId: SessionId) => void;
     /** Close one tab; navigation is untouchable from here (the caller decides). */
     close: (sessionId: SessionId) => void;
-    /** Drop tabs whose session left the catalog (deleted / archived). */
-    closeMissing: (list: SessionListState) => void;
+    /**
+     * Replace the strip with tabs loaded from the host.
+     *
+     * The host read is a `fetch`, so it cannot happen inside `init()`. This action
+     * is how the async result lands, and it is a no-op once the user has already
+     * opened a tab — a slow response must never discard what they just did.
+     */
+    restore: (tabs: readonly SessionTab[]) => void;
 }
-declare function touchImpl(state: SessionTabsState, sessionId: SessionId): void;
-declare function closeImpl(state: SessionTabsState, sessionId: SessionId): void;
-declare function closeMissingImpl(state: SessionTabsState, list: SessionListState): void;
 /** Annotation twin of the actions literal below (structural `ActionsDecl`). */
 type SessionTabsActionsDecl = {
-    touch: typeof touchImpl;
-    close: typeof closeImpl;
-    closeMissing: typeof closeMissingImpl;
+    touch: typeof touchTabImpl;
+    close: typeof closeTabImpl;
+    restore: typeof restoreTabsImpl;
 };
 /**
  * The tab store's registered handle: identity + spec + the instance factory the
@@ -56,6 +66,13 @@ export type SessionTabsStoreHandle = StoreHandle<SessionTabsState, SessionTabsAc
 export type SessionTabsInstance = ReturnType<EngineStoreHandle<SessionTabsState, SessionTabsActionsDecl>['create']>;
 /**
  * Create the session-tab store handle.
+ *
+ * The strip starts EMPTY and is hydrated by the caller through the `restore`
+ * action: persistence lives on the host behind a `fetch`, which cannot run
+ * during `init()`. Browser storage is deliberately not used — the origin
+ * includes the port, and every launch picks a new one, so `localStorage` and
+ * `sessionStorage` both start empty on the next start.
+ *
  * @returns the store handle (spec + type + identity + factory in one).
  */
 export declare function createSessionTabsStore(): EngineStoreHandle<SessionTabsState, SessionTabsActionsDecl>;

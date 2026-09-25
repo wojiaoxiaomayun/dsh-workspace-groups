@@ -1,20 +1,33 @@
 /**
  * Registrant-private injected share for the workspace-groups browser entry.
  * Mirrors the official ui-workspace browser inject (same runtime calls), with
- * two differences: no directory-flow hole dependency (Add Workspace is
- * self-contained via `pickDirectory`), and no locale-keyed naming collision.
+ * two differences: the directory-flow hole is kept occupied (`hooks.directoryFlow`)
+ * because the official entry stays registered behind this one and gates its own
+ * "Add workspace…" affordance on that hole — Add Workspace itself is
+ * self-contained via `pickDirectory` — and no locale-keyed naming collision.
  */
-import type { PropsLocale, PropsRuntime, PropsStore, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
+import type { HostObservable, InjectFace, PropsLocale, PropsRuntime, PropsStore, SnapshotSelectorHook } from '@deepseek-ai/dsh-client-ui-slots';
 import type { SessionId } from '@deepseek-ai/dsh-session/types';
 import type { SessionListState, SessionSearchResultItem } from '@deepseek-ai/dsh-api-session-controller/client';
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client';
-import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client';
+import type { SessionStatus, SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client';
+import type { WorkspaceId, WorkspaceSnapshot, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-controller/client';
 import type { createGroupsViewStore } from './stores.ts';
 import type { SessionTabsInstance, SessionTabsState } from './tab-store.ts';
 /** Services/slots this registrant's props depend on (documentation alias). */
 export type WorkspaceGroupsStoreHandle = ReturnType<typeof createGroupsViewStore>;
 /** Injected share (arrives via the register inject factory). */
 export type GroupsBrowserInjected = {
+    /**
+     * Reserved hooks compartment. `directoryFlow` reports the
+     * `sidebar.workspaces.directoryFlow` hole as occupied: the official
+     * ui-workspace entry stays registered behind this one and withdraws its
+     * "Add workspace…" affordance when the hole is empty, so this browser keeps
+     * it truthy (it drives the picker itself through `pickDirectory`).
+     */
+    hooks: {
+        /** True while the sidebar browsing region's directory-flow hole is occupied. */
+        directoryFlow: HostObservable<boolean>;
+    };
     /** Start a New Session in a Workspace (reuse-or-create its blank session and open it). */
     startSession: (workspaceId?: WorkspaceId) => void;
     /** Open a real Session. */
@@ -47,13 +60,15 @@ export type GroupsBrowserInjected = {
     /** Ask the local Host to open its native single-directory chooser (self-contained Add Workspace). */
     pickDirectory: () => Promise<string | null>;
     /**
-     * Surface the session-tab strip for a newly opened session (called with the
-     * session the browser itself just opened). Tab visibility rules live in
-     * `tabs.ts`; the browser also calls this for the open session on every list
-     * change, which is what makes "click a session → a tab appears" hold for
-     * every entry point (sidebar, quick panel, conversation-header crumbs).
+     * Surface the session-tab strip for a session that is in play (called with the
+     * session the browser itself just opened, and again whenever its status
+     * changes). Tab visibility rules live in `shouldOpenTab`; the status is passed
+     * in because "it started working" is a live-status fact the store layer cannot
+     * read on its own.
+     * @param sessionId - the session to consider.
+     * @param status - its unified UI status, when one is published.
      */
-    openTab: (sessionId: SessionId) => void;
+    openTab: (sessionId: SessionId, status: SessionStatus | undefined) => void;
     /**
      * Selector hook over the shared tab store, bound by this plugin (the strip is
      * not a slot occupant, so the framework does not bind it). Built from the one
@@ -64,7 +79,7 @@ export type GroupsBrowserInjected = {
     tabActions: SessionTabsInstance['actions'];
 };
 /** Full browser props: shell owner share + viewing store + injected actions + locale seat. */
-export type GroupsBrowserProps = PropsRuntime<'sidebar.workspaces'> & PropsStore<ReturnType<typeof createGroupsViewStore>> & GroupsBrowserInjected & PropsLocale<'workspaceGroups'>;
+export type GroupsBrowserProps = PropsRuntime<'sidebar.workspaces'> & PropsStore<ReturnType<typeof createGroupsViewStore>> & InjectFace<GroupsBrowserInjected> & PropsLocale<'workspaceGroups'>;
 /**
  * The two framework global seats the strip reads, declared structurally because
  * `GlobalStandardProps`'s own members arrive from merge declarations this repo
@@ -78,6 +93,12 @@ export interface SessionsTabsStandardProps {
     useSessions: SnapshotSelectorHook<SessionListState>;
     /** Unified per-session UI status (framework global seat). */
     useSessionStatus: SnapshotSelectorHook<SessionStatusSnapshot>;
+    /**
+     * Workspace registry (framework global seat). The strip reads it to label each
+     * tab with the project that owns its session — the one fact a bare strip of
+     * session titles cannot convey.
+     */
+    useWorkspaces: SnapshotSelectorHook<WorkspaceSnapshot>;
 }
 /**
  * Full tab-strip props.

@@ -5,7 +5,7 @@
 # @dsh-xhl/workspace-groups
 
 ![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)
-![DSH](https://img.shields.io/badge/DSH-0.1.1--rc.2-purple.svg)
+![DSH](https://img.shields.io/badge/DSH-0.1.7--rc.2-purple.svg)
 <img src="https://img.shields.io/badge/DeepSeek%20Harness-plugin-202724" alt="DeepSeek Harness plugin">
 
 > **DeepSeek Harness（DSH）Web 客户端插件：完整的工作区分组管理工具。**
@@ -180,9 +180,13 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
 > 前置：已安装 [DeepSeek Harness](https://github.com/deepseek-ai/deepseek-harness)
 > （`dsh` 命令可用），并已初始化好目标 profile（如内置 `web`）。
 >
-> 版本对应：本插件 `0.2.x` 起对齐 `dsh 0.1.6-alpha.2` 客户端契约
+> 版本对应：本插件 `0.3.x` 起对齐 `dsh 0.1.7-rc.2` 客户端契约
 > （`useSessionStatus` / `ctx.uiWorkspace` / `mainView` 选中模型）；
 > 运行在 `0.1.2-rc.1` 时代的 dsh 上请使用 `0.1.2`。
+>
+> `0.3.0` 说明：`dsh 0.1.7` 把 `dsh-client-ui-primitives` 的整套图标从尺寸后缀
+> 改为字重后缀（`IconCloseFill14` → `IconCloseFillMedium` / `…Regular`，且不保留
+> 旧名别名），本版本所有调用点已直接改用新名。
 
 ```sh
 dsh plugin --profile web add @dsh-xhl/workspace-groups
@@ -191,7 +195,7 @@ dsh plugin --profile web add @dsh-xhl/workspace-groups
 这会自动：
 
 1. 在 `~/.dsh/profiles/web/package.json` 的 `dependencies` 加入
-   `"@dsh-xhl/workspace-groups": "^0.2.0"`
+   `"@dsh-xhl/workspace-groups": "^0.3.0"`
 2. 在 `dsh.profile.bundles` 末尾追加 `"@dsh-xhl/workspace-groups"`
 3. 运行 pnpm 安装并校验 bundle 层
 
@@ -463,6 +467,11 @@ scripts/
   这正是「重启后标签不显示」的原因。现在 sidecar 原样返回，
   旧文件多出的 `sessionKey` 字段直接忽略。同时 `restore` 改为**合并**而非
   「非空就跳过」：启动期间新开的标签和已存标签现在都能保留。
+- v0.12（发布 `0.3.0`）：合并远端 `0.2.1` 的图标改名修复——所有调用点统一改用
+  `dsh 0.1.7` 的字重后缀新名（`IconCloseFillMedium` / `…Regular`），因此远端那层
+  `icons.ts` 别名表不再需要，已删除；同时保留远端的注入面修复：补齐
+  `hooks.directoryFlow` 保留隔间（官方 entry 仍注册在本插件之后，并据此决定是否
+  显示自己的「添加工作区」），以及 `SessionStatusSnapshot` 的 map / 记录双形状读取。
 - 类型检查 + 构建通过（含 client bundle purity 门）。
 - 单测 179 用例全绿（vitest：`core` / `manual` / `tree` / `store` / `quick` / `tabs` /
   `tab-seat` / `host-tabs` / `branch` / `styles` / `open-folder`）。

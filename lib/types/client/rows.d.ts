@@ -8,7 +8,7 @@
  * workspace rows, standing for their containing category) are drop targets.
  * The payload is a custom dataTransfer type so only in-plugin drags land.
  */
-import { type DragEvent } from 'react';
+import { type DragEvent, type ReactNode } from 'react';
 import { type StateDotState } from '@deepseek-ai/dsh-client-ui-primitives';
 import type { TranslateNS } from '@deepseek-ai/dsh-client-ui-slots';
 import type { CategoryNode, SessionNode, WorkspaceGroupNode } from './tree.ts';
@@ -73,6 +73,17 @@ export declare function WorkspaceRow({ node, t, onToggle, onNewSession, onRename
     /** Extra dragstart hook (e.g. collapse all expanded projects while dragging). */
     onDragStartExtra?: () => void;
 } & RowDropProps): import("react").JSX.Element;
+/**
+ * Children container for one folder's rows.
+ *
+ * Keeps the tree's `role="group"` semantics and gives the rows a single
+ * positioned ancestor. It used to draw a per-folder guide rail; that is now the
+ * flower branch's job (one continuous stem for the whole tree, see
+ * `FlowerBranch.tsx`), so this is structure only.
+ */
+export declare function TreeChildren({ children }: {
+    children: ReactNode;
+}): import("react").JSX.Element;
 /** One session leaf row. */
 export declare function SessionRow({ node, currentId, now, t, onOpen, onRename, onFork, onArchive }: {
     node: SessionNode;

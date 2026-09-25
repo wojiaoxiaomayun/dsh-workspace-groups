@@ -13,7 +13,7 @@ import type { WorkspaceId, WorkspaceView } from '@deepseek-ai/dsh-api-workspace-
 // Type-only: the unified UI status snapshot. 0.1.6 把 running / pendingInteraction /
 // 未读完成提示收敛为 ui-session 的 SessionStatusSnapshot；SessionSummary.completed
 // 与 SessionListState.current 同时移除，当前会话改由 `mainView` 保留位推导。
-import type { SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
+import type { SessionStatus, SessionStatusSnapshot } from '@deepseek-ai/dsh-client-ui-session/client'
 import type { SessionId } from '@deepseek-ai/dsh-session/types'
 import { indexSubagentDescendants, type SubagentDescendantSummary } from './subagent-lineage.ts'
 import { effectiveCategories, orderedWorkspaceIds, resolveCategory } from '../core/matcher.ts'
@@ -134,7 +134,12 @@ function sessionNode(
   descendants: ReadonlyMap<SessionId, SubagentDescendantSummary>,
   statuses: SessionStatuses,
 ): SessionNode {
-  const status = statuses.get(s.id)
+  // `SessionStatusSnapshot` is typed as ReadonlyMap, but the framework binds a
+  // plain record at runtime (client.js: `statuses[sessionId]`). Read both shapes
+  // so a hook backed by an object never throws "statuses.get is not a function".
+  const status = typeof (statuses as { get?: unknown } | undefined)?.get === 'function'
+    ? statuses.get(s.id)
+    : (statuses as unknown as Record<string, SessionStatus | undefined>)[s.id]
   const pending = visiblePendingKind(status?.pendingInteraction?.kind)
   return {
     id: s.id,
