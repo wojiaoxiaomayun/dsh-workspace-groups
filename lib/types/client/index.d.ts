@@ -1,18 +1,35 @@
 /**
- * @dsh-xhl/workspace-groups client half: registers the three-level grouped
- * workspace browser into the `sidebar.workspaces` slot, shadowing the
- * official ui-workspace browser.
+ * @dsh-xhl/workspace-groups client half. ONE registration, plus a DOM-seated
+ * view that hangs off it:
  *
- * Shadowing mechanics (SlotCore semantics):
- * - `sidebar.workspaces` is a `single`/`root` slot. The official browser
- *   registers at priority 0; this entry registers at priority -1, and the
- *   single-cell shadow rule makes the LOWEST priority the winner — the
- *   sidebar renders this browser instead of the official one.
- * - This entry deliberately declares NO child slots: the official entry
- *   already declared `sidebar.workspaces.directoryFlow` (a second declaration
- *   of an occupied child key throws). Add Workspace is therefore self-
- *   contained — the shared navigation service + `workspaces.create()`, no
- *   hole.
+ * The three-level grouped workspace browser into `sidebar.workspaces`,
+ * shadowing the official ui-workspace browser.
+ *
+ *    Shadowing mechanics (SlotCore semantics):
+ *    - `sidebar.workspaces` is a `single`/`root` slot. The official browser
+ *      registers at priority 0; this entry registers at priority -1, and the
+ *      single-cell shadow rule makes the LOWEST priority the winner — the
+ *      sidebar renders this browser instead of the official one.
+ *    - This entry deliberately declares NO child slots: the official entry
+ *      already declared `sidebar.workspaces.directoryFlow` (a second declaration
+ *      of an occupied child key throws). Add Workspace is therefore self-
+ *      contained — the shared navigation service + `workspaces.create()`, no
+ *      hole.
+ *
+ * The session tab strip is NOT a second registration. It renders into a DOM
+ * seat at the head of the conversation column (`pI_x6G_centerCol`) because that
+ * column declares no child slot — its only child is the `main` slot's occupant
+ * — so there is nowhere to register. See `tab-seat.ts` for the injection and
+ * `SessionTabs.tsx` for the portal.
+ *
+ *    Two consequences of that choice, both deliberate:
+ *    - The strip is a CHILD of this entry's component, so it inherits this
+ *      fiber's frame; it needs no injected seam, no cross-entry callback set,
+ *      and the rename dialog stays owned by one place.
+ *    - The tab store is seated by exactly ONE entry. Registering one handle
+ *      under a second, differently-scoped slot throws inside the registry
+ *      ("one handle, one scope") and would abort this whole `apply()` — which
+ *      is precisely why the strip does not occupy a slot.
  *
  * 0.1.6 适配：导航（选中会话 / New Session / fork / archive / 目录选择）从
  * `ctx.sessions` 抽到 ui-workspace 提供的 `ctx.uiWorkspace` 服务
@@ -36,7 +53,7 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
 }
 /**
  * Required services (cordis fiber inject; 0.1.6 service roster). `uiWorkspace`
- * is the shipped navigation face this browser delegates selection to.
+ * is the shipped navigation face this entry delegates selection to.
  */
 export declare const inject: string[];
 /**

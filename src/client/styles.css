@@ -250,10 +250,18 @@
   background: var(--dsw-bg-hover, rgba(127, 127, 127, 0.12));
 }
 
-.wgProjectActive {
-  color: var(--dsw-accent, #4a90d9);
+/* The folder that owns the open session: its label goes heavier. The path from
+   here down to the open session is traced by the flower branch's grown stroke,
+   which is drawn in full-strength ink exactly to the active row. */
+.wgProjectActive .wgProjectLabel {
+  font-weight: 700;
 }
 
+/* Folder label: the STRONGER of the two levels. Folder rows carry the tree's
+   structure, so they take the heavier weight and primary label colour.
+   Project names are directory names, so the monospace face separates them from
+   prose session titles at the same size — a second, non-colour cue for "this row
+   is a folder, not a conversation". */
 .wgProjectLabel {
   flex: 1;
   min-width: 0;
@@ -261,7 +269,9 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  color: var(--dsw-fg-1, inherit);
+  font-weight: 600;
+  color: var(--dsw-alias-label-primary, var(--dsw-fg-1, inherit));
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
 
 .wgRowActions {
@@ -277,12 +287,102 @@
   opacity: 1;
 }
 
+/* ---------------------------------------------------------------------------
+   Flower branch — the stem that grows to the row you are on.
+
+   Ported from the RewampUI *Flower Sidebar* reference. An SVG overlay paints
+   behind the tree rows: a dashed ghost for the whole route, a solid stroke grown
+   only as far as the active row, and a dot per row sitting on the curve.
+
+   Purely decorative, so it is `pointer-events: none` and sits under the rows in
+   stacking order — the rows keep every click, hover and drag.
+   --------------------------------------------------------------------------- */
+
+.wgTreeWrap {
+  position: relative;
+}
+
+.wgBranch {
+  position: absolute;
+  /* Aligned to the row column's left padding, where the branch geometry expects
+     its origin (STEM_X / BULGE_X are measured from here). */
+  left: 0;
+  top: 0;
+  /* Behind the rows, which carry their own backgrounds on hover/selection. */
+  z-index: 0;
+  pointer-events: none;
+  /* The kink draws outside the box at the extremes; clipping would cut it. */
+  overflow: visible;
+}
+
+.wgTreeWrap > .wgList {
+  position: relative;
+  z-index: 1;
+}
+
+/* The ghost route: the whole path, faint and dashed. `non-scaling-stroke` keeps
+   the 1px hairline honest regardless of the SVG's viewBox scaling. */
+.wgBranchGhost {
+  fill: none;
+  stroke: var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.28));
+  stroke-width: 1.5;
+  stroke-dasharray: 2 3;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The grown stroke: solid and in full-strength ink, drawn only to the active
+   row. The contrast against the faint dashed ghost IS the effect — the stem
+   reads as having grown down to where you are. */
+.wgBranchGrown {
+  fill: none;
+  stroke: var(--dsw-alias-label-primary, currentColor);
+  stroke-width: 2;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+  /* Matches the reference's feel: the stem visibly reaches the new row rather
+     than teleporting. Stroke/fill only, so it never triggers layout. */
+  transition: stroke 160ms ease;
+}
+
+/* One dot per row, sitting on the curve. */
+.wgBranchDot {
+  fill: var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.5));
+  transition: r 160ms ease, fill 160ms ease;
+}
+
+/* The active row's dot blooms: larger, and filled with the strongest neutral.
+   The host's theme has NO accent hue to borrow — `--dsw-alias-brand-primary` is
+   the same near-black as `--dsw-alias-label-primary`, and the only saturated
+   tokens are the state colours (green/amber/red), which would falsely read as
+   "running" / "needs attention" if reused here. So the bloom is expressed by
+   SIZE plus full-strength ink, which is what the row itself already does. */
+.wgBranchDotActive {
+  fill: var(--dsw-alias-label-primary, currentColor);
+}
+
+/* Motion is decoration here; honour a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  .wgBranchGrown,
+  .wgBranchDot {
+    transition: none;
+  }
+}
+
+/* Children of one folder: just a grouping wrapper now.
+   This used to draw a per-folder guide rail; the flower branch (above) replaced
+   it with one continuous stem, so the rail's rules are gone. The wrapper stays
+   because it keeps the tree's `role="group"` semantics and gives the rows a
+   single positioned ancestor. */
+.wgTreeChildren {
+  position: relative;
+}
+
 /* Session row: leaf under a workspace folder. */
 .wgSessionRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: 28px;
   padding: 0 4px 0 40px;
   border-radius: 6px;
   cursor: pointer;
@@ -311,6 +411,9 @@
   flex: none;
 }
 
+/* Session title: the QUIETER level — secondary colour and regular weight, so a
+   session never competes with the folder that owns it. The selected row lifts
+   back to primary (see `.wgSelected`). */
 .wgSessionTitle {
   flex: 1;
   min-width: 0;
@@ -318,7 +421,13 @@
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 12px;
-  color: var(--dsw-fg-1, inherit);
+  color: var(--dsw-alias-label-secondary, var(--dsw-fg-2, inherit));
+}
+
+/* The open session reads as primary again. */
+.wgSelected .wgSessionTitle {
+  color: var(--dsw-alias-label-primary, var(--dsw-fg-1, inherit));
+  font-weight: 500;
 }
 
 .wgSessionTime {
@@ -649,3 +758,233 @@
   font-size: 11px;
   color: var(--dsw-alias-label-secondary, var(--dsw-fg-3, rgba(127, 127, 127, 0.8)));
 }
+
+/* ---------------------------------------------------------------------------
+   Session tab strip — conversation column (pI_x6G_centerCol), first row.
+
+   The strip is injected into the head of the conversation column, so it owns a
+   full-width row ABOVE the panel (title bar / transcript): no card border, no
+   centering, because it is chrome for the whole column rather than a card
+   floating inside the composer's content axis. Its row height is fixed so the
+   panel below never reflows as chips are added or removed, and it is a flex
+   item of the column (which is `display:flex; flex-direction:column`), so it
+   must opt out of growing/shrinking.
+   --------------------------------------------------------------------------- */
+
+.wgTabs {
+  display: flex;
+  align-items: stretch;
+  gap: 4px;
+  flex: none;
+  min-width: 0;
+  /* Two stacked lines plus breathing room above and below them. The earlier
+     46px box left the chips flush against the frame, which is what read as
+     cramped. */
+  height: 56px;
+  padding: 8px 10px;
+  box-sizing: border-box;
+  /* The column's own background shows through, so the strip reads as part of
+     the panel frame rather than a separate card. A single hairline separates it
+     from the panel below without introducing a second surface colour. */
+  border-bottom: 1px solid var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.2));
+  background: transparent;
+}
+
+.wgTabsScroll {
+  display: flex;
+  align-items: stretch;
+  /* Real space between chips; 2px made them read as one continuous bar. */
+  gap: 6px;
+  flex: 1 1 auto;
+  min-width: 0;
+  /* Horizontal scroll, no visible bar. The row is keyboard/wheel/trackpad
+     scrollable and the browser brings the focused chip into view; a rendered
+     scrollbar would add a second line of chrome under the strip and shift the
+     chips' baseline. All three declarations are needed: `scrollbar-width` for
+     Firefox, the `::-webkit-scrollbar` rule for Chromium/WebKit, and
+     `-ms-overflow-style` for older Edge. */
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  /* Momentum scrolling on touch/trackpad without chaining the gesture to the
+     transcript behind the strip. */
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
+  /* A little vertical padding so a hover fill is not clipped by the scroll box. */
+  padding: 1px 0;
+  box-sizing: border-box;
+}
+
+.wgTabsScroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
+/* One chip, shaped like a FILE-FOLDER TAB: a short line on top (the workspace)
+   over a longer line below (the session title). The width is driven by the
+   title, so the top line is naturally narrower — which is what makes the stacked
+   pair read as a folder label rather than two unrelated lines.
+   `flex: 0 0 auto` is load-bearing: a chip must NOT shrink. With a shrinkable
+   chip the row absorbs any number of tabs by squeezing every one of them (and
+   ellipsing every label) instead of overflowing — so the strip never scrolled
+   and tabs became unreadable slivers. Holding their natural width makes the row
+   overflow, which is what turns on the horizontal scroll above. */
+.wgTab {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  min-width: 0;
+  /* Wide enough for a real title on the second line; the workspace line is
+     capped separately so a long project name cannot stretch the chip alone. */
+  max-width: 240px;
+  padding: 0 6px 0 10px;
+  border-radius: 8px;
+  /* A faint outline gives each chip its own shape, so a row of them reads as
+     separate objects instead of one continuous bar — the fix for "挤". */
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.18));
+  color: var(--dsw-alias-label-secondary, var(--dsw-fg-2, inherit));
+  transition: background 120ms ease, box-shadow 120ms ease;
+}
+
+/* The stacked text column: workspace over title. `align-items: flex-start` makes
+   each line shrink to its own content instead of both stretching to the column,
+   which is what gives the folder its short-top / long-bottom shape. */
+.wgTabText {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  /* Real leading between the two lines. At 1px they collided, which was most of
+     why the chip read as cramped. */
+  gap: 3px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+}
+
+/* The owning workspace, on the SHORT line. Monospace (project names are
+   directory names) and secondary, so it reads as the folder label above the
+   conversation rather than competing with it. It truncates well before the
+   title can, so a long project name never widens the chip on its own. */
+.wgTabProject {
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--dsw-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px;
+  /* Roomier leading, and uppercase-free tracking so it reads as a quiet label
+     rather than tiny shouting. */
+  line-height: 13px;
+  letter-spacing: 0.02em;
+  color: var(--dsw-alias-label-secondary, var(--dsw-fg-3, inherit));
+  opacity: 0.85;
+}
+
+.wgTab:hover {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsw-bg-hover, rgba(127, 127, 127, 0.12)));
+}
+
+/* Active chip: the host's selected-row fill PLUS a stronger outline, so the
+   current tab is obvious at a glance in a long strip and does not depend on
+   colour alone. Deliberately no accent wash: `--dsw-accent` / `--dsw-bg-selected`
+   are not product theme tokens, so those always fell through to hardcoded blue
+   literals that clash with every theme. */
+.wgTabActive {
+  background: var(--dsw-alias-interactive-bg-hover, var(--dsw-bg-hover, rgba(127, 127, 127, 0.12)));
+  box-shadow: inset 0 0 0 1px var(--dsw-alias-label-secondary, rgba(127, 127, 127, 0.45));
+  color: var(--dsw-alias-label-primary, var(--dsw-fg-1, inherit));
+}
+
+.wgTabActive .wgTabProject {
+  opacity: 1;
+}
+
+.wgTabMain {
+  display: inline-flex;
+  align-items: center;
+  /* Space between the status dot and the text column. */
+  gap: 8px;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 100%;
+  padding: 6px 0;
+  box-sizing: border-box;
+  border: none;
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+}
+
+.wgTabStatus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+/* An idle conversation keeps the same dot vocabulary as the sidebar rows
+   (done = the neutral "settled" face); running/attention/unread come from the
+   shared StateDot, so no extra rule is needed for them. */
+.wgTabStatus[data-tab-state='idle'] {
+  opacity: 0.45;
+}
+
+/* The session title, on the LONG line. Primary colour so it outranks the
+   workspace above it — the chip's subject is the conversation, not its folder. */
+.wgTabLabel {
+  flex: none;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--dsw-alias-label-primary, var(--dsw-fg-1, inherit));
+}
+
+/* A session in no workspace has no folder line, so its title sits alone and
+   centres itself rather than hugging the top of a two-line box. */
+.wgTabText > .wgTabLabel:only-child {
+  align-self: center;
+}
+
+.wgTabClose {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-left: 2px;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  /* Revealed on hover/focus like the sidebar row actions; the active chip
+     keeps it visible so the affordance is discoverable. */
+  opacity: 0;
+  transition: opacity 120ms ease, background 120ms ease;
+}
+
+.wgTab:hover .wgTabClose,
+.wgTab:focus-within .wgTabClose,
+.wgTabActive .wgTabClose {
+  opacity: 1;
+}
+
+.wgTabClose:hover {
+  background: var(--dsw-alias-interactive-bg-hover-solid, rgba(127, 127, 127, 0.2));
+}
+

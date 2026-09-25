@@ -2,6 +2,9 @@ node_modules/
 *.log
 .DS_Store
 
+# Playwright CLI scratch (snapshots, screenshots, traces) from local verification
+.playwright-cli/
+
 # 开发工程文件：docs 五级文档框架不进项目 git 仓库
 docs/
 AGENTS.md

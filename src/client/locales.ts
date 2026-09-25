@@ -82,6 +82,9 @@ export type WorkspaceGroupsKey =
   | 'quick.empty.sessions'
   | 'quick.select.hint'
   | 'quick.hint'
+  | 'tabs.aria'
+  | 'tabs.close'
+  | 'tabs.archive'
 
 export type WorkspaceGroupsDict = LocaleDictOf<'workspaceGroups'>
 
@@ -163,6 +166,9 @@ export const zh: WorkspaceGroupsDict = {
   'quick.empty.sessions': '还没有会话',
   'quick.select.hint': '在上方选择一个工作区',
   'quick.hint': 'Ctrl+R 开关 · Enter 打开/新建 · Esc 关闭',
+  'tabs.aria': '已打开的会话',
+  'tabs.close': '关闭标签',
+  'tabs.archive': '归档',
 }
 
 /** English dictionary. */
@@ -243,4 +249,7 @@ export const en: WorkspaceGroupsDict = {
   'quick.empty.sessions': 'No sessions yet',
   'quick.select.hint': 'Pick a workspace above',
   'quick.hint': 'Ctrl+R toggle · Enter open/new · Esc close',
+  'tabs.aria': 'Open sessions',
+  'tabs.close': 'Close tab',
+  'tabs.archive': 'Archive',
 }

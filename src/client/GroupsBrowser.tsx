@@ -17,11 +17,11 @@
 import { useEffect, useMemo, useRef, useState, type DragEvent } from 'react'
 import {
   Button,
-  IconCloseFill14,
-  IconFolderOpenOutline16,
-  IconProjectAddOutline16,
-  IconSearchOutline16,
-  IconWarningOutline16,
+  IconCloseFillMedium,
+  IconFolderOpenOutlineRegular,
+  IconProjectAddOutlineRegular,
+  IconSearchOutlineRegular,
+  IconWarningOutlineRegular,
   Modal,
   Toast,
   Tooltip,
@@ -41,9 +41,11 @@ import {
 import { TOP_LEVEL_ORDER_KEY, UNCATEGORIZED_LABEL, type GroupsConfig, type ManualGroups } from '../core/types.ts'
 import type { GroupsBrowserProps } from './contract.ts'
 import { deriveGroups, deriveSearchGroups, deriveSearchMatches, deriveTopLevel, currentSessionId, UNCATEGORIZED_KEY, type CategoryNode, type WorkspaceGroupNode } from './tree.ts'
-import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, WorkspaceRow } from './rows.tsx'
+import { CategoryRow, DND_CATEGORY_TYPE, DND_WORKSPACE_TYPE, hasPluginDragType, SessionRow, TreeChildren, WorkspaceRow } from './rows.tsx'
 import { fetchOpenInApps, folderAppId, openPathInApp } from './open-folder.ts'
 import { QuickPanel } from './QuickPanel.tsx'
+import { SessionTabs } from './SessionTabs.tsx'
+import { FlowerBranch } from './FlowerBranch.tsx'
 import css from './styles.css?inline'
 
 const SEARCH_DEBOUNCE_MS = 250
@@ -170,6 +172,9 @@ export function GroupsBrowser({
   pickDirectory,
   searchSessions,
   searchResultLimit,
+  openTab,
+  useTabs,
+  tabActions,
   t,
 }: GroupsBrowserProps) {
   // Inject the stylesheet once per fiber; dispose removes it (HMR safe).
@@ -255,6 +260,19 @@ export function GroupsBrowser({
     )
   }, [actions, config, manual, workspacePhase, workspaces])
 
+  // Session tabs: the strip lives in the conversation column, but its lifecycle
+  // belongs here — the browser already derives the open session for its own tree,
+  // so one effect covers every way a session can be opened (sidebar row,
+  // workspace New Session, quick panel, conversation-header crumbs).
+  //
+  // `statuses` is a dependency on purpose: a session earns its tab when it
+  // STARTS working, which is a status change, not a catalog change. Without it a
+  // conversation that began while already open would never surface a tab.
+  useEffect(() => {
+    if (current === undefined) return
+    openTab(current, statuses.get(current))
+  }, [current, list, statuses, openTab])
+
   const [query, setQuery] = useState('')
   const [searchExpanded, setSearchExpanded] = useState(false)
   const normalizedQuery = sanitizeSearchQuery(query).trim()
@@ -263,6 +281,10 @@ export function GroupsBrowser({
   })
   const searchInput = useRef<HTMLInputElement | null>(null)
   const searchRoot = useRef<HTMLDivElement | null>(null)
+  // Box the flower branch measures and paints into. Held as a ref (not state)
+  // because the overlay re-measures on its own MutationObserver; a state update
+  // here would re-render the whole tree on every layout tick.
+  const branchScope = useRef<HTMLDivElement | null>(null)
 
   // Search debounce + abort, same posture as the official browser.
   useEffect(() => {
@@ -431,6 +453,11 @@ export function GroupsBrowser({
     setSessionRenameDraft(currentTitle)
     setSessionRenameError(null)
   }
+
+  // The strip is a child of this component (rendered through a DOM portal), so
+  // it shares this fiber's props directly: renames call the dialog owner here,
+  // and activation goes through the same navigation verb the sidebar rows use.
+  const activateTab = (sessionId: SessionId) => { open(sessionId) }
 
   const onSessionArchive = (sessionId: SessionId) => {
     archiveSession(sessionId).catch((reason: unknown) => {
@@ -817,6 +844,20 @@ export function GroupsBrowser({
 
   return (
     <div className={`wgRoot${wide ? '' : ' wgRail'}`}>
+      {/* The tab strip portals itself into the conversation column's head seat,
+          so its position here is irrelevant to where it appears; rendering it
+          from this component is what keeps it on this fiber (and therefore on
+          this store's single scope) while still reaching the other column. */}
+      <SessionTabs
+        useSessions={useSessions}
+        useSessionStatus={useSessionStatus}
+        useWorkspaces={useWorkspaces}
+        useTabs={useTabs}
+        actions={tabActions}
+        activate={activateTab}
+        rename={onSessionRename}
+        t={t}
+      />
       <div className="wgSectionHeader">
         {wide && <span className="wgSectionLabel">{t('section.workspaces')}</span>}
         {wide && (
@@ -827,7 +868,7 @@ export function GroupsBrowser({
               aria-label={t('search')}
               onClick={() => { setSearchExpanded(true) }}
             >
-              <IconSearchOutline16 size={searchExpanded ? 11 : 14} />
+              <IconSearchOutlineRegular size={searchExpanded ? 11 : 14} />
             </button>
             {searchExpanded && (
               <input
@@ -857,7 +898,7 @@ export function GroupsBrowser({
                   setSearchExpanded(false)
                 }}
               >
-                <IconCloseFill14 />
+                <IconCloseFillMedium />
               </button>
             )}
           </div>
@@ -873,7 +914,7 @@ export function GroupsBrowser({
               setGroupDialog({ mode: 'create' })
             }}
           >
-            <IconFolderOpenOutline16 size={wide ? 16 : 18} />
+            <IconFolderOpenOutlineRegular size={wide ? 16 : 18} />
           </button>
         </Tooltip>
         <Tooltip label={t('workspace.add')} side="bottom" delayMs={500}>
@@ -884,7 +925,7 @@ export function GroupsBrowser({
             disabled={adding}
             onClick={addWorkspace}
           >
-            <IconProjectAddOutline16 size={wide ? 16 : 18} />
+            <IconProjectAddOutlineRegular size={wide ? 16 : 18} />
           </button>
         </Tooltip>
       </div>
@@ -898,7 +939,7 @@ export function GroupsBrowser({
               aria-label={t('search')}
               onClick={() => { setSearchExpanded(true); expandSidebar() }}
             >
-              <IconSearchOutline16 size={18} />
+              <IconSearchOutlineRegular size={18} />
             </button>
           </Tooltip>
         </div>
@@ -928,7 +969,13 @@ export function GroupsBrowser({
             t={t}
           />
         ) : (
-          <div className="wgList" role="tree" aria-label={t('section.workspaces')}>
+          /* The branch overlay lives beside the tree, not inside it: it measures
+             the rows and paints behind them, so it must share their box without
+             becoming a row itself (which would break role="tree" semantics and
+             the index-based measurement). */
+          <div className="wgTreeWrap" ref={branchScope}>
+            <FlowerBranch scope={branchScope.current} />
+            <div className="wgList" role="tree" aria-label={t('section.workspaces')}>
             {groups.length === 0 && topLevel.length === 0 && !topLevelDropActive && (
               <div className="wgEmpty">{workspacePhase === 'ready' ? t('empty.noWorkspaces') : t('empty.none')}</div>
             )}
@@ -1019,6 +1066,7 @@ export function GroupsBrowser({
                 onOpenInFolder={openInFolder}
               />
             )}
+            </div>
           </div>
         )}
       </div>
@@ -1155,7 +1203,7 @@ export function GroupsBrowser({
         <Toast
           key={folderError.id}
           text={folderError.text}
-          icon={<IconWarningOutline16 size={16} />}
+          icon={<IconWarningOutlineRegular size={16} />}
           onDone={() => { setFolderError(null) }}
         />
       )}
@@ -1264,19 +1312,23 @@ function CategorySection({ category, current, now, t, dragIndicator, onDragOverR
                 onRowDrop={onDropRow(category.key, { kind: 'workspace', key: workspace.workspaceId })}
                 onDragStartExtra={onDragStartWorkspace(workspace.workspaceId)}
               />
-              {workspace.expanded && workspace.sessions.map((session) => (
-                <SessionRow
-                  key={session.id}
-                  node={session}
-                  currentId={current}
-                  now={now}
-                  t={t}
-                  onOpen={onOpen}
-                  onRename={onSessionRename}
-                  onFork={onFork}
-                  onArchive={onSessionArchive}
-                />
-              ))}
+              {workspace.expanded && (
+                <TreeChildren>
+                  {workspace.sessions.map((session) => (
+                    <SessionRow
+                      key={session.id}
+                      node={session}
+                      currentId={current}
+                      now={now}
+                      t={t}
+                      onOpen={onOpen}
+                      onRename={onSessionRename}
+                      onFork={onFork}
+                      onArchive={onSessionArchive}
+                    />
+                  ))}
+                </TreeChildren>
+              )}
             </div>
           ))}
         </div>
@@ -1361,19 +1413,23 @@ function TopLevelSection({ topLevel, current, now, t, dragging, dragIndicator, t
             onRowDrop={onDropRow(UNCATEGORIZED_KEY, { kind: 'topLevel', key: workspace.workspaceId })}
             onDragStartExtra={onDragStartWorkspace(workspace.workspaceId)}
           />
-          {workspace.expanded && workspace.sessions.map((session) => (
-            <SessionRow
-              key={session.id}
-              node={session}
-              currentId={current}
-              now={now}
-              t={t}
-              onOpen={onOpen}
-              onRename={onSessionRename}
-              onFork={onFork}
-              onArchive={onSessionArchive}
-            />
-          ))}
+          {workspace.expanded && (
+            <TreeChildren>
+              {workspace.sessions.map((session) => (
+                <SessionRow
+                  key={session.id}
+                  node={session}
+                  currentId={current}
+                  now={now}
+                  t={t}
+                  onOpen={onOpen}
+                  onRename={onSessionRename}
+                  onFork={onFork}
+                  onArchive={onSessionArchive}
+                />
+              ))}
+            </TreeChildren>
+          )}
         </div>
       ))}
     </div>
