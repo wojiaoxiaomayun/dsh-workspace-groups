@@ -103,10 +103,16 @@ export interface Branch {
     /** Dots, in row order. */
     readonly dots: readonly BranchDot[];
     /**
-     * Bloom at the grown path's endpoint, or null when there is nothing to bloom
-     * on (no rows). Present whenever a row carries the active marker; when no row
-     * does, the stem grows to the first dot instead (see `activeIndex` below), so
-     * the flower follows that same rule and never floats on its own.
+     * Bloom at the grown path's endpoint, or NULL when no row carries the active
+     * marker.
+     *
+     * Deliberately stricter than `grownPath`: the stem has to be *some* path even
+     * when nothing is active (it collapses to the bare origin, drawing nothing),
+     * but a bloom with no active row has nothing to be the flower OF. Falling back
+     * to the first dot — the earlier rule — put the blossom on a folder row at the
+     * top of the tree as soon as the open session's folder was collapsed, because
+     * folding removes the only row carrying the marker. No active row means no
+     * flower.
      */
     readonly flower: BranchFlower | null;
     /** Total vertical extent, so the SVG box can be sized. */

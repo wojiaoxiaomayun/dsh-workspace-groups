@@ -109,10 +109,16 @@ export interface Branch {
   /** Dots, in row order. */
   readonly dots: readonly BranchDot[]
   /**
-   * Bloom at the grown path's endpoint, or null when there is nothing to bloom
-   * on (no rows). Present whenever a row carries the active marker; when no row
-   * does, the stem grows to the first dot instead (see `activeIndex` below), so
-   * the flower follows that same rule and never floats on its own.
+   * Bloom at the grown path's endpoint, or NULL when no row carries the active
+   * marker.
+   *
+   * Deliberately stricter than `grownPath`: the stem has to be *some* path even
+   * when nothing is active (it collapses to the bare origin, drawing nothing),
+   * but a bloom with no active row has nothing to be the flower OF. Falling back
+   * to the first dot — the earlier rule — put the blossom on a folder row at the
+   * top of the tree as soon as the open session's folder was collapsed, because
+   * folding removes the only row carrying the marker. No active row means no
+   * flower.
    */
   readonly flower: BranchFlower | null
   /** Total vertical extent, so the SVG box can be sized. */
@@ -279,14 +285,24 @@ export function buildBranch(rows: readonly BranchRow[]): Branch {
   // The grown stroke stops AT the active row, so its path contains every
   // segment before that row and none after. An active first row grows nothing
   // beyond the origin, which is correct (the dot sits on the stem origin).
-  let activeIndex = rows.findIndex(row => row.active)
-  if (activeIndex < 0) activeIndex = 0
+  //
+  // `activeIndex < 0` is the NO-ACTIVE-ROW case: the open session's folder was
+  // collapsed, or the catalog has not resolved yet. The stem then collapses to
+  // the bare origin (drawing nothing), and — crucially — `hasActive` stays false
+  // so no flower is produced. Conflating this with "the first row is active" is
+  // what used to sprout the blossom on a top-level folder row.
+  const activeIndex = rows.findIndex(row => row.active)
+  const hasActive = activeIndex >= 0
+  const grownTo = hasActive ? activeIndex : 0
 
   // The bloom sits on the endpoint of `grownPath`, which `join` puts at the
   // active row. It therefore uses the SAME index as the grown stroke, so the
-  // flower and the stem can never disagree about where the branch ends.
-  const flowerAt = dots[activeIndex] ?? dots[0] as BranchDot
-  const flower: BranchFlower = { key: flowerAt.key, cx: flowerAt.cx, cy: flowerAt.cy }
+  // flower and the stem can never disagree about where the branch ends — and it
+  // exists ONLY when a row actually claimed the marker.
+  const flowerAt = dots[grownTo] as BranchDot | undefined
+  const flower: BranchFlower | null = hasActive && flowerAt !== undefined
+    ? { key: flowerAt.key, cx: flowerAt.cx, cy: flowerAt.cy }
+    : null
 
   const join = (list: readonly Segment[]): string =>
     list.length === 0 ? head : [head, ...list.map(s => s.d)].join(' ')
@@ -296,7 +312,7 @@ export function buildBranch(rows: readonly BranchRow[]): Branch {
   // crossing the flower. The GHOST keeps its full length: it is a faint dashed
   // route at 28% opacity, and shortening it too would leave the last row's
   // guide visibly detached from that row.
-  const grownSegments = segments.slice(0, activeIndex)
+  const grownSegments = segments.slice(0, grownTo)
   const lastGrown = grownSegments[grownSegments.length - 1]
   const grownStroke = lastGrown === undefined
     ? grownSegments
@@ -316,7 +332,7 @@ export function buildBranch(rows: readonly BranchRow[]): Branch {
     ghostLength: lengthOf(segments.length),
     // The grown length follows the TRIMMED run, so a consumer measuring the
     // stroke (a dash animation, say) stays consistent with what is drawn.
-    grownLength: Math.max(0, lengthOf(activeIndex) - (lastGrown === undefined ? 0 : STEM_END_CLEARANCE)),
+    grownLength: Math.max(0, lengthOf(grownTo) - (lastGrown === undefined ? 0 : STEM_END_CLEARANCE)),
     dots,
     flower,
     height: last.y + tail,

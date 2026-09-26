@@ -143,13 +143,16 @@ describe('buildBranch', () => {
     expect(b.flower?.cy).toBe(b.dots[0]?.cy)
   })
 
-  it('follows the grown stroke when nothing is active', () => {
-    // No active row is a real state (list still loading). The grown path
-    // collapses to the origin, so the flower must land on that same first dot
-    // rather than floating on an unrelated row.
+  // Collapsing the open session's folder removes the only row carrying the
+  // active marker. The stem may collapse to a bare origin, but the flower must
+  // NOT fall back to another row: doing so sprouted the blossom on a top-level
+  // folder row at the top of the tree.
+  it('blooms nowhere when no row is active', () => {
     const b = buildBranch(items(3))
-    expect(b.flower?.key).toBe('r0')
-    expect(b.flower?.cy).toBe(b.dots[0]?.cy)
+    expect(b.flower).toBeNull()
+    // The stem still produces a valid, empty grown path at the origin.
+    expect(b.grownPath).toBe('M 30 14')
+    expect(b.grownLength).toBe(0)
   })
 
   it('reports no flower when there are no rows', () => {
