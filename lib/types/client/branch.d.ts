@@ -72,6 +72,24 @@ export interface BranchDot {
     readonly cy: number;
     readonly active: boolean;
 }
+/**
+ * The bloom that flowers at the branch's endpoint.
+ *
+ * The endpoint is where the GROWN stroke stops — the row the user is on — not
+ * the last visible row: the stem is drawn to the active row, so that is where
+ * the plant has visibly reached, whether the tree is folded above it or not.
+ *
+ * This is deliberately the ONE row an active marker names, so the flower can
+ * never disagree with the stem about where the branch ends.
+ */
+export interface BranchFlower {
+    /** Row whose endpoint carries the bloom (the active row's key). */
+    readonly key: string;
+    /** Endpoint x: the last dot's centre, i.e. exactly where the grown path stops. */
+    readonly cx: number;
+    /** Endpoint y, on the measured row centre. */
+    readonly cy: number;
+}
 /** The branch: one path for the ghost, its total length, and the dots. */
 export interface Branch {
     /** Full route, drawn as the faded dashed ghost. */
@@ -84,9 +102,29 @@ export interface Branch {
     readonly grownLength: number;
     /** Dots, in row order. */
     readonly dots: readonly BranchDot[];
+    /**
+     * Bloom at the grown path's endpoint, or null when there is nothing to bloom
+     * on (no rows). Present whenever a row carries the active marker; when no row
+     * does, the stem grows to the first dot instead (see `activeIndex` below), so
+     * the flower follows that same rule and never floats on its own.
+     */
+    readonly flower: BranchFlower | null;
     /** Total vertical extent, so the SVG box can be sized. */
     readonly height: number;
 }
+/**
+ * How far short of the flower's centre the stem stops, in SVG user units.
+ *
+ * The bloom is drawn ON the endpoint, so a stem that runs all the way to the
+ * centre is visible through the petal notches and reads as a line crossing the
+ * flower. Stopping the stroke at (a little over) the bloom's radius keeps the
+ * stem ending cleanly at the flower's edge, where it reads as a stalk holding
+ * the bloom.
+ *
+ * 7 units ≈ the 6.2-unit flower radius plus a hair, so the stroke's round cap
+ * tucks just under the outer petals without a visible gap.
+ */
+export declare const STEM_END_CLEARANCE = 7;
 /**
  * Build the branch for a list of rows.
  *

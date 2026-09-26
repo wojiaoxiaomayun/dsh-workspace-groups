@@ -12,7 +12,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
-import { buildBranch, type BranchRow } from '../src/client/branch.ts'
+import { buildBranch, STEM_END_CLEARANCE, type BranchRow } from '../src/client/branch.ts'
 
 /** A row at explicit coordinates. */
 const at = (
@@ -121,5 +121,69 @@ describe('buildBranch', () => {
     expect(b.dots).toHaveLength(1)
     expect(b.dots[0].cx).toBe(28)
     expect(b.ghostLength).toBe(0)
+  })
+
+  // The bloom: the flower sits on the endpoint of the GROWN path, which is the
+  // row the stem has visibly reached. These tests pin the flower to the same
+  // index the grown stroke uses, so the two can never drift apart.
+  it('blooms at the grown path endpoint (the active row)', () => {
+    const b = buildBranch(items(4, 2))
+    expect(b.flower).not.toBeNull()
+    expect(b.flower?.key).toBe('r2')
+    // The endpoint is the ACTIVE dot, not the last visible one: the stem stops
+    // at r2, so that is where the flower belongs even though r3 is drawn below.
+    const active = b.dots.filter(d => d.active)
+    expect(b.flower?.cx).toBe(active[0]?.cx)
+    expect(b.flower?.cy).toBe(active[0]?.cy)
+  })
+
+  it('blooms on the first row when it is the active one', () => {
+    const b = buildBranch(items(3, 0))
+    expect(b.flower?.key).toBe('r0')
+    expect(b.flower?.cy).toBe(b.dots[0]?.cy)
+  })
+
+  it('follows the grown stroke when nothing is active', () => {
+    // No active row is a real state (list still loading). The grown path
+    // collapses to the origin, so the flower must land on that same first dot
+    // rather than floating on an unrelated row.
+    const b = buildBranch(items(3))
+    expect(b.flower?.key).toBe('r0')
+    expect(b.flower?.cy).toBe(b.dots[0]?.cy)
+  })
+
+  it('reports no flower when there are no rows', () => {
+    expect(buildBranch([]).flower).toBeNull()
+  })
+
+  // The stem must stop at the bloom's edge, not at its centre: a stroke reaching
+  // the centre shows through the petal notches. These pin the clearance.
+  it('stops the grown stroke short of the flower centre', () => {
+    const b = buildBranch(items(4, 2))
+    const flower = b.flower as NonNullable<typeof b.flower>
+    // The last command of the grown path ends above the flower's centre...
+    const lastY = Number(b.grownPath.match(/([\d.-]+)\s*$/)?.[1])
+    expect(lastY).toBeCloseTo(flower.cy - STEM_END_CLEARANCE, 5)
+    // ...while the ghost keeps the FULL route: its endpoint is the active row
+    // (r2 at y=70), and it continues on to the rows below it (r3 at y=98).
+    expect(b.ghostPath.startsWith(`M 30 14`)).toBe(true)
+    expect(b.ghostPath.endsWith('98')).toBe(true)
+    // The active dot itself is untouched by the trim.
+    expect(b.dots.filter(d => d.active).map(d => d.cy)).toEqual([flower.cy])
+  })
+
+  it('keeps the trimmed stroke from overshooting its own start', () => {
+    // A single-row branch has no move to trim: the stem is the bare origin, and
+    // trimming must not invent a backwards segment.
+    const b = buildBranch([at('only', 14, 28, 'item')])
+    expect(b.grownPath).toBe('M 28 14')
+    expect(b.grownLength).toBe(0)
+  })
+
+  it('never reports a negative grown length', () => {
+    // When every move before the active row is shorter than the clearance.
+    const rows = items(3, 2).map((r, i) => ({ ...r, y: 14 + i * 3 }))
+    const b = buildBranch(rows)
+    expect(b.grownLength).toBeGreaterThanOrEqual(0)
   })
 })

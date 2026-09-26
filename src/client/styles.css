@@ -308,8 +308,12 @@
      its origin (STEM_X / BULGE_X are measured from here). */
   left: 0;
   top: 0;
-  /* Behind the rows, which carry their own backgrounds on hover/selection. */
-  z-index: 0;
+  /* ABOVE the rows (`.wgList` is z-index 1). The branch paints dots and the
+     endpoint bloom on the very cells the rows use for their status markers —
+     `anchorX` deliberately targets `.wgStatusSlot` — so sitting underneath let a
+     row's background, status dot or hover fill clip the flower. The overlay is
+     `pointer-events: none`, so being on top costs the rows no interaction. */
+  z-index: 2;
   pointer-events: none;
   /* The kink draws outside the box at the extremes; clipping would cut it. */
   overflow: visible;
@@ -360,11 +364,57 @@
   fill: var(--dsw-alias-label-primary, currentColor);
 }
 
+/* The bloom at the branch's endpoint: the flower the stem grows into.
+   `.wgFlower` carries the anchor transform (from the JSX `transform`
+   attribute: move to the tip, scale, then recentre the glyph). `.wgFlowerArt`
+   is the artwork itself, which only turns.
+
+   The rotation is expressed in USER UNITS about the glyph's own centre: the
+   transform-origin is the centre of the artwork's box in the coordinate system
+   it is drawn in. `transform-box: fill-box` is what makes the percentages below
+   resolve against the PATH's box instead of the SVG viewport — measured on the
+   live page, without it the recentring percentage resolved against the viewport
+   and pushed the bloom off the stem. */
+.wgFlowerArt {
+  transform-box: fill-box;
+  transform-origin: 50% 50%;
+  animation: wg-flower-spin 4s linear infinite;
+  /* Fully still while the session is idle — the animation is paused, never
+     removed, so starting to work resumes the turn instead of snapping the
+     petals back to 0deg. */
+  animation-play-state: paused;
+}
+
+/* The open session is WORKING (the agent, or a subagent it started, is
+   producing output): the bloom turns while it runs and comes to rest the moment
+   the turn ends ("正在会话中旋转，会话结束静止"). */
+.wgFlowerSpinning .wgFlowerArt {
+  animation-play-state: running;
+}
+
+/* Rotating about the transform-origin set above; no translate here, because the
+   recentring already happened in the parent group's transform. */
+@keyframes wg-flower-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 /* Motion is decoration here; honour a reduced-motion preference. */
 @media (prefers-reduced-motion: reduce) {
   .wgBranchGrown,
   .wgBranchDot {
     transition: none;
+  }
+
+  /* A turning flower is exactly the kind of motion the preference is about, so
+     it rests — but it stays visible, still centred, and the same size, so the
+     endpoint is still marked. */
+  .wgFlowerArt {
+    animation: none;
   }
 }
 
@@ -673,12 +723,10 @@
   background: var(--dsw-bg-selected, rgba(74, 144, 217, 0.18));
 }
 
-/* The currently open workspace (workspaces tab) / open session (running tab).
-   Same selected face the sidebar's current row uses, plus an inset accent bar
-   so the marker stays visible under hover/keyboard/selected backgrounds. */
+/* The currently open workspace (workspaces tab) / open session (running tab):
+   the same selected face the sidebar's current row uses, no accent bar. */
 .wgQuickRowCurrent {
   background: var(--dsw-bg-selected, rgba(74, 144, 217, 0.18));
-  box-shadow: inset 3px 0 0 0 var(--dsw-accent, #4a90d9);
 }
 
 .wgQuickRowMain {

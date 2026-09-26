@@ -235,6 +235,17 @@ export function GroupsBrowser({
     ? undefined
     : (workspaces.find(w => w.sessionIds.includes(current as SessionId))?.workspaceId as string | undefined)
 
+  // Whether the open session is WORKING right now, which is what makes the
+  // flower at the branch's endpoint turn. Read from the unified status snapshot
+  // (the catalog summary alone goes stale), folded together with the session's
+  // own `running` so a subagent-only turn still counts.
+  //
+  // Derived as a boolean on purpose: the overlay re-measures through its own
+  // MutationObserver, so handing it a live value would re-render the tree on
+  // every status tick.
+  const currentRunning = current !== undefined
+    && ((statuses.get(current)?.running ?? false) || (list.byId[current]?.running ?? false))
+
   // Auto-expand the category + workspace containing the current session, but
   // ONLY when the user has never touched that key (`Object.hasOwn`): a
   // present `false` is a deliberate collapse and must stay folded. Without
@@ -974,7 +985,7 @@ export function GroupsBrowser({
              becoming a row itself (which would break role="tree" semantics and
              the index-based measurement). */
           <div className="wgTreeWrap" ref={branchScope}>
-            <FlowerBranch scope={branchScope.current} />
+            <FlowerBranch scope={branchScope.current} spinning={currentRunning} />
             <div className="wgList" role="tree" aria-label={t('section.workspaces')}>
             {groups.length === 0 && topLevel.length === 0 && !topLevelDropActive && (
               <div className="wgEmpty">{workspacePhase === 'ready' ? t('empty.noWorkspaces') : t('empty.none')}</div>

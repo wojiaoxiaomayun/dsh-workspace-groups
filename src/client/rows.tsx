@@ -308,7 +308,13 @@ export function SessionRow({ node, currentId, now, t, onOpen, onRename, onFork, 
 }) {
   const selected = node.id === currentId
   const [menuOpen, setMenuOpen] = useState(false)
-  const showStatus = true
+  // The ACTIVE session hands its status slot to the flower: the branch anchors
+  // on this cell (`anchorX` targets `.wgStatusSlot`), so the bloom and the dot
+  // occupy the same 14px square. Drawing both puts the dot's green "ongoing"
+  // ring (or the loading spinner) on top of the petals, which is what made the
+  // flower look broken. The flower already carries this row's state — it turns
+  // exactly while the session runs — so the dot is redundant here anyway.
+  const showStatus = !selected
   const menuItems = [
     { id: 'rename', label: t('session.rename'), icon: <IconEditOutlineRegular /> },
     { id: 'fork', label: t('session.fork'), icon: <IconBranchOutlineRegular /> },

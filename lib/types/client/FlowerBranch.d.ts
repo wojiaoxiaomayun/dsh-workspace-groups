@@ -14,9 +14,10 @@ export declare const BRANCH_ACTIVE_ATTRIBUTE = "data-wg-branch-active";
 export declare const BRANCH_GROUP_ATTRIBUTE = "data-wg-branch-group";
 /**
  * Render the branch for the rows currently inside `scope`.
- * @param props - the element to measure, and a key that changes when the layout does.
+ * @param props - the element to measure, and whether the open session is working.
  * @returns the SVG overlay, or null until at least one row is measured.
  */
-export declare function FlowerBranch({ scope }: {
+export declare function FlowerBranch({ scope, spinning }: {
     scope: HTMLElement | null;
+    spinning: boolean;
 }): import("react").JSX.Element | null;
