@@ -22,6 +22,12 @@ DeepSeek峰谷小组件 等）归入一个「DSH 插件」分类文件夹，点�
 
 <img src="screenshot.png" alt="@dsh-xhl/workspace-groups 工作区分组管理" width="280" />
 
+### 快速切换面板（Ctrl+R）
+
+| 顶部多标签会话条 | 按工作区切换 | 按全部会话切换 |
+| --- | --- | --- |
+| ![顶部多标签会话条](docs/images/quick-switch-tabs.png) | ![按工作区快速切换](docs/images/quick-switch-workspaces.png) | ![按会话快速切换](docs/images/quick-switch-sessions.png) |
+
 ## 特性
 
 ### 分组树浏览

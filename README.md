@@ -21,6 +21,12 @@
 
 <img src="screenshot.png" alt="@dsh-xhl/workspace-groups workspace grouping manager" width="280" />
 
+### Quick switch panel (Ctrl+R)
+
+| Multi-tab session bar | Switch by workspace | Switch by session |
+| --- | --- | --- |
+| ![Multi-tab session bar](docs/images/quick-switch-tabs.png) | ![Quick switch by workspace](docs/images/quick-switch-workspaces.png) | ![Quick switch by session](docs/images/quick-switch-sessions.png) |
+
 ## Features
 
 ### Grouped tree browsing
